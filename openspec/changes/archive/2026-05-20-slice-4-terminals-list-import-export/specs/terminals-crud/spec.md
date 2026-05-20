@@ -1,11 +1,29 @@
 ## ADDED Requirements
 
 ### Requirement: Terminals list page is scoped to a campaign
-The route `/campaigns/:campaignId/terminals` SHALL render a PrimeNG `<p-table>` listing every terminal returned by `GET /campaigns/:campaignId/terminals`. The table SHALL include columns: **Titolo** (terminal title), **Pubblico** (public flag badge), and **Azioni** (row action buttons for open detail, export, delete). The page SHALL display a loading state while the request is in flight and an empty-state message ("Nessun terminale in questa campagna") when the list is empty.
+The route `/campaigns/:campaignId/terminals` SHALL render a PrimeNG `<p-table>` listing every terminal returned by `GET /campaigns/:campaignId/terminals`. The table SHALL include the following columns, in this order:
+
+1. **Codename** — the terminal's `hiddenId`
+2. **Titolo** — terminal title (links to the detail page)
+3. **Pubblico** — public flag badge
+4. **Visualizzazioni** — the `views` count (times viewed); when `views` is `undefined` the cell SHALL render a placeholder (`—`) rather than an empty or `undefined` value
+5. **Creato il** — the `createdAt` timestamp, formatted for display
+6. **Aggiornato il** — the `updatedAt` timestamp, formatted for display (placeholder `—` when absent)
+7. **Azioni** — row action buttons for open detail, export, delete
+
+Every data column (Codename, Titolo, Pubblico, Visualizzazioni, Creato il, Aggiornato il) SHALL be sortable by clicking its header; **Azioni** SHALL NOT be sortable. The page SHALL display a loading state while the request is in flight and an empty-state message ("Nessun terminale in questa campagna") when the list is empty.
 
 #### Scenario: List loads terminals for the campaign
 - **WHEN** an authenticated admin navigates to `/campaigns/c1/terminals`
-- **THEN** the table renders one row per terminal returned by `GET /campaigns/c1/terminals`, showing the title, the public badge, and action buttons
+- **THEN** the table renders one row per terminal returned by `GET /campaigns/c1/terminals`, showing the codename, title, public badge, views, created/updated timestamps, and action buttons
+
+#### Scenario: Undefined views renders a placeholder
+- **WHEN** a terminal row has no `views` value
+- **THEN** the Visualizzazioni cell shows the placeholder `—` instead of `undefined`
+
+#### Scenario: Columns are sortable
+- **WHEN** the admin clicks the header of any data column (e.g. Creato il)
+- **THEN** the rows reorder by that column's value, toggling ascending/descending on repeated clicks
 
 #### Scenario: Empty state when no terminals exist
 - **WHEN** `GET /campaigns/c1/terminals` returns an empty array

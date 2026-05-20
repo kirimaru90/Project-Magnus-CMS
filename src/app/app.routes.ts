@@ -30,6 +30,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/users/user-detail-page').then((m) => m.UserDetailPage),
       },
+      {
+        path: 'campaigns/:campaignId/terminals',
+        loadComponent: () =>
+          import('./features/terminals/terminals-list').then((m) => m.TerminalsListPage),
+      },
+      {
+        path: 'terminals/:id',
+        loadComponent: () =>
+          import('./features/terminals/terminal-detail').then((m) => m.TerminalDetailPage),
+      },
     ],
   },
   { path: '**', redirectTo: 'login' },

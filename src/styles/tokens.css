@@ -219,6 +219,21 @@
   font-size: 10.5px;
   color: var(--bo-text-faint);
 }
+.bo-nav button.nav-link {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 8px;
+  border-radius: var(--bo-radius-sm);
+  color: var(--bo-text-muted);
+  text-decoration: none;
+  background: none;
+  border: none;
+  width: 100%;
+  font-size: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: default;
+  opacity: 0.45;
+}
 
 .bo-campaign-switch {
   border: 1px solid var(--bo-border);
@@ -302,8 +317,8 @@
 }
 .bo-btn.primary::before { content: "[ "; opacity: 0.8; }
 .bo-btn.primary::after  { content: " ]"; opacity: 0.8; }
-.bo-btn.ghost { border-color: transparent; background: transparent; color: var(--bo-text-muted); }
-.bo-btn.ghost:hover { color: var(--bo-text); background: var(--bo-hover); }
+.bo-btn.ghost { border-color: var(--bo-border); background: transparent; color: var(--bo-text-muted); }
+.bo-btn.ghost:hover { color: var(--bo-text); background: var(--bo-hover); border-color: var(--bo-border-strong); }
 .bo-btn.danger { color: var(--bo-danger); border-color: var(--bo-border); }
 .bo-btn.danger:hover { background: var(--bo-danger-soft); }
 .bo-btn.icon { width: 28px; padding: 0; justify-content: center; }

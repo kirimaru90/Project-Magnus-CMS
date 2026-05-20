@@ -153,6 +153,20 @@ The list page at `/campaigns/:campaignId/terminals` reads the campaign id from t
 
 The architecture doc mentions per-terminal versioning history as a nice-to-have. The canonical schema does not include a `schemaVersion` field in this slice. **Rationale:** adding one now without a versioning policy is wasted speculation. Future slices can add it as a non-breaking optional field. Documented here so reviewers do not flag the omission.
 
+### D11 — List columns: codename, views, timestamps are list-view sidecar fields
+
+The terminals list table shows columns beyond the canonical content: **Codename** (`hiddenId`), **Visualizzazioni** (`views`), **Creato il** (`createdAt`), and **Aggiornato il** (`updatedAt`). None of these belong in `TerminalContentSchema` — they are server/list-view metadata about the terminal record, not part of the playable terminal JSON. They live on the list-view `TerminalDto` (`src/app/core/terminal/terminal.types.ts`) alongside the existing `campaignId`/`updatedAt` sidecar fields, exactly as D8 established for `campaignId`.
+
+- `hiddenId` is a short stable "codename" for the terminal; rendered under the **Codename** header.
+- `views` is the times-viewed counter and is **optional** (`views?: number`) — the API may omit it. The cell renders `—` when undefined rather than `undefined`/blank.
+- `createdAt` is required; `updatedAt` remains optional (renders `—` when absent).
+
+Column order (chosen here, no external constraint): Codename → Titolo → Pubblico → Visualizzazioni → Creato il → Aggiornato il → Azioni. Rationale: identity first (codename, title), then status (public), then the engagement metric (views), then lifecycle timestamps, with row actions pinned last.
+
+All data columns are sortable via PrimeNG `pSortableColumn` (nested paths like `meta.title` are supported); the **Azioni** column is not sortable. Sorting is client-side over the already-loaded rows — consistent with D-level decision to skip pagination for MVP. Timestamps are displayed via Angular `DatePipe` (`dd/MM/yyyy HH:mm`); sorting operates on the raw ISO string values, which sort correctly lexicographically.
+
+**Alternative considered:** Add these fields to `TerminalContentSchema`. Rejected — they are record metadata, not content, and adding them would break round-trip import/export (an exported file would carry server-assigned view counts and timestamps that an import must not trust).
+
 ## Risks / Trade-offs
 
 - **[Risk] Zod schema drifts from API server expectations.** The API spec's `TerminalContentDto` is loosely typed (`StateDeclarationDto`, `LoginBlockDto` are empty objects in the spec). Our schema is stricter. → **Mitigation:** the canonical schema is documented as the source of truth for the *backoffice's contract with itself and with terminal JSON files*. If the API rejects an import, the error surfaces back to the user verbatim; we treat that as an API bug to triage, not a client validation failure. Architecture doc 178-179 establishes the same expectation.

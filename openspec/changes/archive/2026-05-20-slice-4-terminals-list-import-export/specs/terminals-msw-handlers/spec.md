@@ -21,8 +21,16 @@ On MSW initialization, the terminals store SHALL be seeded with at least two fix
 - **WHEN** the client calls `GET /campaigns/<first-fixture-id>/terminals` against MSW
 - **THEN** the response is an array containing at least two terminals, each conforming to `TerminalContentSchema`
 
+### Requirement: List rows expose codename, timestamps, and views
+The `GET /campaigns/:campaignId/terminals` handler SHALL return each terminal as a list-view row (`TerminalDto`) carrying, in addition to `id` and `meta`: a `hiddenId` (codename) string, a `createdAt` timestamp, an `updatedAt` timestamp, and an optional `views` count. These are list-view sidecar fields stored alongside the canonical `TerminalContent`, not part of `TerminalContentSchema`. Seeded fixtures SHALL include at least one terminal with a defined `views` value and at least one with `views` left undefined.
+
+#### Scenario: List rows carry the sidecar fields
+- **WHEN** the client calls `GET /campaigns/<first-fixture-id>/terminals` against MSW
+- **THEN** each returned row includes `hiddenId`, `createdAt`, and `updatedAt`
+- **AND** at least one seeded row omits `views` while at least one provides a numeric `views`
+
 ### Requirement: Create handler assigns an id and stores under the campaign
-The `POST /campaigns/:campaignId/terminals` handler SHALL accept any body conforming to `TerminalContentSchema`, assign a fresh id (via `crypto.randomUUID()`), associate it with the path's `campaignId`, append it to the in-memory store, and return 201 with the stored entry.
+The `POST /campaigns/:campaignId/terminals` handler SHALL accept any body conforming to `TerminalContentSchema`, assign a fresh id (via `crypto.randomUUID()`) and a generated `hiddenId` codename, set `createdAt` and `updatedAt` to the current time and `views` to `0`, associate it with the path's `campaignId`, append it to the in-memory store, and return 201 with the stored entry.
 
 #### Scenario: Create returns 201 with stored body
 - **WHEN** the client POSTs a valid stub to `/campaigns/c1/terminals`
