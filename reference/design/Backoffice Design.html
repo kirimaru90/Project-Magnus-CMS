@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>RobCo Backoffice — Design</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #efece6; }
+  #root { width: 100%; height: 100%; }
+
+  /* Override the design_canvas card background so dark-mode artboards
+     don't pick up a milky border halo on the warm-gray canvas. */
+  .dc-card { background: transparent !important; }
+
+  /* Notes between sections */
+  .bo-design-intro {
+    max-width: 720px;
+    margin: 32px auto 8px;
+    padding: 0 24px;
+    color: #3a342a;
+    font-family: 'Inter', sans-serif;
+  }
+  .bo-design-intro h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(40,30,20,0.7);
+    margin: 0 0 14px;
+  }
+  .bo-design-intro h1 span { color: rgba(40,30,20,0.95); }
+  .bo-design-intro p { font-size: 13px; line-height: 1.6; color: rgba(40,30,20,0.7); margin: 0 0 8px; }
+  .bo-design-intro code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 3px; }
+  .bo-pillrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .bo-pillrow span {
+    font: 11px 'JetBrains Mono', monospace;
+    background: rgba(45,138,62,0.12);
+    color: #1c5a28;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<!-- React + Babel (pinned) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/shared.jsx"></script>
+<script type="text/babel" src="components/terminals.jsx"></script>
+<script type="text/babel" src="components/node-editor.jsx"></script>
+<script type="text/babel" src="components/state-editor.jsx"></script>
+<script type="text/babel" src="components/tweaks.jsx"></script>
+
+<script type="text/babel">
+  // App — assembles the design canvas
+  function App() {
+    return (
+      <>
+        <DesignCanvas>
+
+          <DCSection id="intro" title="RobCo Backoffice" subtitle="Sistema di design — leggibilità prima dell'immersione; il sapore Fallout si limita ad accenti monospace, righelli ASCII e pillole verde-fosforo per gli stati attivi.">
+
+            <DCArtboard id="legend" label="Sistema · note" width={520} height={520}>
+              <div style={{ height: "100%", boxSizing: "border-box", padding: "28px 30px", background: "#faf8f2", color: "#1a1a16", fontFamily: "'Inter', sans-serif", fontSize: 12.5, lineHeight: 1.6, overflow: "auto" }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6a675e", marginBottom: 6 }}>Direzione di design</div>
+                <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 600, lineHeight: 1.2 }}>Backoffice RobCo · sistema di base</h2>
+
+                <p style={{ margin: "0 0 14px", color: "#3a342a" }}>
+                  Un'app di amministrazione moderna e leggibile, con un sapore Fallout volutamente minimo. La gerarchia è guidata da spaziatura e tipografia, non da glow o scanline.
+                </p>
+
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6a675e", margin: "16px 0 6px" }}>──── tipografia ────</div>
+                <p style={{ margin: 0, color: "#3a342a" }}><b>Inter</b> per UI (corpo, titoli sezione). <b>JetBrains&nbsp;Mono</b> per ID, titoli pagina, etichette di stato, valori tabulari e tutti gli accenti "terminale".</p>
+
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6a675e", margin: "16px 0 6px" }}>──── colore ────</div>
+                <p style={{ margin: 0, color: "#3a342a" }}>Due temi: <b>light</b> (carta calda <code>#f5f3ee</code>) e <b>dark</b> (carbone <code>#121210</code>). Un solo accento — verde fosforo desaturato e <i>leggibile</i> — usato per stati attivi, dati modificati e il pulsante primario.</p>
+
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6a675e", margin: "16px 0 6px" }}>──── flavor fallout ────</div>
+                <ul style={{ margin: 0, paddingLeft: 18, color: "#3a342a" }}>
+                  <li>Righelli ASCII fra sezioni (<code>──── FINE ELENCO ────</code>)</li>
+                  <li>Pillole verde-fosforo solo per "attivo", "modificato", "salvato"</li>
+                  <li>ID e numeri in monospace, sempre <code>tabular-nums</code></li>
+                  <li>Pulsanti primari con label tipo <code>[ Salva ]</code></li>
+                  <li>Mini-CRT integrato come anteprima dal vivo nell'editor</li>
+                </ul>
+
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6a675e", margin: "16px 0 6px" }}>──── tweaks ────</div>
+                <p style={{ margin: 0, color: "#3a342a" }}>Pannello in basso a destra: cambia tema (light/dark) e accent (verde / ambra / blu). Tutti gli artboard riflettono la scelta in tempo reale.</p>
+
+                <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px dashed #cfccc1", fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: "#a39f93", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  10 artboard · 3 sezioni · v0.1
+                </div>
+              </div>
+            </DCArtboard>
+
+            <DCArtboard id="theme-light" label="Tema · light" width={520} height={520}>
+              <Frame theme="light" noSidebar crumbs={["Esempio"]}>
+                <div style={{ padding: 26, flex: 1, overflow: "auto" }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--bo-text-faint)", marginBottom: 6 }}>tema · light</div>
+                  <h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 600 }}>Palette su carta calda</h2>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 18 }}>
+                    {[
+                      ["bg", "#f5f3ee"], ["panel", "#ffffff"], ["panel-2", "#faf8f2"], ["sunk", "#ebe8df"],
+                      ["text", "#1a1a16"], ["muted", "#6a675e"], ["faint", "#a39f93"], ["accent", "hsl(132 52% 32%)"],
+                    ].map(([n, c]) => (
+                      <div key={n} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ height: 36, background: c, borderRadius: 4, border: "1px solid rgba(0,0,0,0.08)" }}/>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "#6a675e" }}>{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Rule style={{ marginBottom: 14 }}>componenti</Rule>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <button className="bo-btn primary">Salva</button>
+                    <button className="bo-btn">Secondario</button>
+                    <button className="bo-btn ghost">Ghost</button>
+                    <button className="bo-btn danger">Elimina</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    <Pill tone="active" dot>online</Pill>
+                    <Pill tone="warn" dot>bozza</Pill>
+                    <Pill dot>nascosto</Pill>
+                    <span className="bo-tag">tag</span>
+                  </div>
+                  <div className="bo-crt" style={{ marginTop: 10, fontSize: 11 }}>
+                    <h3>SUPER-DUPER MART</h3>
+                    <p>Connessione stabilita.</p>
+                    <span className="choice">[ Continua ]<span className="cursor"/></span>
+                  </div>
+                </div>
+              </Frame>
+            </DCArtboard>
+
+            <DCArtboard id="theme-dark" label="Tema · dark" width={520} height={520}>
+              <Frame theme="dark" noSidebar crumbs={["Esempio"]}>
+                <div style={{ padding: 26, flex: 1, overflow: "auto" }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--bo-text-faint)", marginBottom: 6 }}>tema · dark</div>
+                  <h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 600 }}>Palette su carbone</h2>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 18 }}>
+                    {[
+                      ["bg", "#121210"], ["panel", "#1b1b18"], ["panel-2", "#232320"], ["sunk", "#0e0e0c"],
+                      ["text", "#ebe9df"], ["muted", "#908d83"], ["faint", "#5f5d54"], ["accent", "hsl(128 70% 60%)"],
+                    ].map(([n, c]) => (
+                      <div key={n} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ height: 36, background: c, borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)" }}/>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "#908d83" }}>{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Rule style={{ marginBottom: 14 }}>componenti</Rule>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <button className="bo-btn primary">Salva</button>
+                    <button className="bo-btn">Secondario</button>
+                    <button className="bo-btn ghost">Ghost</button>
+                    <button className="bo-btn danger">Elimina</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    <Pill tone="active" dot>online</Pill>
+                    <Pill tone="warn" dot>bozza</Pill>
+                    <Pill dot>nascosto</Pill>
+                    <span className="bo-tag">tag</span>
+                  </div>
+                  <div className="bo-crt" style={{ marginTop: 10, fontSize: 11 }}>
+                    <h3>SUPER-DUPER MART</h3>
+                    <p>Connessione stabilita.</p>
+                    <span className="choice">[ Continua ]<span className="cursor"/></span>
+                  </div>
+                </div>
+              </Frame>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="terminals" title="01 · Elenco terminali" subtitle="Tre approcci per la lista dei terminali dentro una campagna. La tabella è la più scansionabile; le schede sono più visuali; lo split fa anteprima istantanea.">
+            <DCArtboard id="t-v1" label="V1 · Tabella densa" width={1280} height={820}>
+              <TerminalListV1 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="t-v2" label="V2 · Schede" width={1280} height={820}>
+              <TerminalListV2 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="t-v3" label="V3 · Split + anteprima" width={1280} height={820}>
+              <TerminalListV3 theme="dark"/>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="node-editor" title="02 · Editor dei nodi" subtitle="Quattro modi di affrontare la parte più critica del prodotto. Dalla forma più semplice al grafo Twine-style. La V2 è la mia raccomandazione: form al centro, CRT-anteprima a destra che reagisce dal vivo.">
+            <DCArtboard id="ne-v1" label="V1 · Due pannelli classico" width={1440} height={900}>
+              <NodeEditorV1 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="ne-v2" label="V2 · Tre pannelli + anteprima CRT ★ raccomandato" width={1440} height={900}>
+              <NodeEditorV2 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="ne-v3" label="V3 · Inspector a schede (varianti + condizioni)" width={1440} height={900}>
+              <NodeEditorV3 theme="dark"/>
+            </DCArtboard>
+            <DCArtboard id="ne-v4" label="V4 · Vista grafo (Twine-style)" width={1440} height={900}>
+              <NodeEditorV4 theme="light"/>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="state-editor" title="03 · Editor di stato" subtitle="Stato locale (per terminale) e globale (per campagna). Tre letture diverse: tabella scansionabile, raggruppata per terminale, o diff esplicito.">
+            <DCArtboard id="s-v1" label="V1 · Tabellare · scansione veloce" width={1280} height={820}>
+              <StateEditorV1 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="s-v2" label="V2 · Raggruppato per terminale" width={1280} height={820}>
+              <StateEditorV2 theme="light"/>
+            </DCArtboard>
+            <DCArtboard id="s-v3" label="V3 · Diff default ↔ corrente" width={1280} height={820}>
+              <StateEditorV3 theme="dark"/>
+            </DCArtboard>
+          </DCSection>
+
+        </DesignCanvas>
+
+        <BackofficeTweaks/>
+      </>
+    );
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App/>);
+</script>
+
+</body>
+</html>
