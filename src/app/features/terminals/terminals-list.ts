@@ -80,7 +80,7 @@ import { ImportTerminalDialogComponent } from './import-terminal-dialog';
 
             <ng-template pTemplate="body" let-terminal>
               <tr>
-                <td>{{ terminal.hiddenId }}</td>
+                <td>{{ terminal.hiddenId ?? '—' }}</td>
                 <td>
                   <a [routerLink]="['/terminals', terminal.id]">{{ terminal.meta.title }}</a>
                 </td>

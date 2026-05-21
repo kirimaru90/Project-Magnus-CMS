@@ -29,8 +29,22 @@ export class TerminalsApiService {
     return this.http.get<TerminalContent>(`${this.base}/terminals/${id}`);
   }
 
+  /**
+   * Resolve a terminal by its user-authored `hiddenId` within a campaign. This is the
+   * only API call keyed on `hiddenId`; every other terminal call uses the server-owned `id`.
+   */
+  getByHiddenId(campaignId: string, hiddenId: string): Observable<TerminalDto> {
+    return this.http.get<TerminalDto>(
+      `${this.base}/campaigns/${campaignId}/terminals/by-hidden-id/${hiddenId}`,
+    );
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/terminals/${id}`);
+  }
+
+  update(id: string, content: TerminalContent): Observable<TerminalContent> {
+    return this.http.put<TerminalContent>(`${this.base}/terminals/${id}`, content);
   }
 
   export(id: string): Observable<TerminalContent> {

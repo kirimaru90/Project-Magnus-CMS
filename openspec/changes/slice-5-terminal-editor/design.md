@@ -31,7 +31,7 @@ Relevant existing files:
 - Visual node-graph editor — deferred Nice-to-Have.
 - Terminal state view/edit — Slice 6.
 - Hashing or obfuscation of fictional passwords — explicitly cleartext per the architecture doc.
-- Schema changes — `terminal-content-schema` is consumed unchanged. If authoring needs a shape the schema forbids, that is a schema bug to triage in its own change, not a workaround here.
+- Schema changes — `terminal-content-schema` is consumed unchanged, **except** for the additive `meta.id`/`meta.hiddenId` adjustment in D15 (making `meta.id` optional and adding optional `meta.hiddenId`), which aligns the schema with the authoring guide's id model. No other schema shape changes; if authoring needs a shape the schema forbids, that is a schema bug to triage in its own change.
 - Automated round-trip test in CI — validated manually this slice (consistent with Slice 4 D-level decision).
 
 ## Decisions
@@ -94,6 +94,8 @@ A single standalone component (`condition-builder.ts`) binds to a `FormGroup` ca
 Buttons: **add leaf**, **add AND group**, **add OR group**, **remove**. The component renders itself for each child (`@for` over `children`), giving unbounded nesting; the acceptance criterion (and-inside-or-inside-and, ≥3 levels) falls out naturally.
 
 On load, `{ and: [...] }`/`{ or: [...] }` map to the combinator kinds; any single-operator object maps to `kind:'leaf'` with `op` = the present key. **`{ default: true }` is not a `kind` of the builder** — see D6.
+
+**Leaf-to-combo conversion (D14):** a leaf node exposes "Converti in AND" / "Converti in OR" buttons. These emit a `@Output() convert: EventEmitter<FormGroup>` carrying a new combo group whose sole child is a clone of the current leaf. Parents handle replacement: the recursive combo template calls `replaceChild(i, g)` internally; root call sites in `node-editor.ts` call `group.setControl('when', g)`. This allows any root condition (choice `when`, variant `when`, branch `when`) to be promoted from a simple leaf to a multi-condition AND/OR tree.
 
 **Alternative considered:** a `op: 'and'|'or'|'leaf'` field reusing the same name as leaf operators. Rejected — collides conceptually; a separate `kind` control is clearer and never serialized.
 
@@ -164,6 +166,69 @@ Serialization keys the local/global records by `name`; duplicate names within a 
 - **[Trade-off] Carrying inert `value`/`by`/`values` controls** that are pruned at serialize time (D4, D11) is slightly wasteful but far simpler than swapping `FormGroup` shapes on every `op`/`type` change.
 - **[Trade-off] No autosave / no optimistic locking.** Two admins editing the same terminal can clobber each other (last `PUT` wins). Acceptable for MVP; the dirty indicator at least prevents accidental navigation loss within a session.
 
+### D12 — Variable-key autocomplete via HTML `<datalist>`
+
+Condition-builder (leaf `key` input) and mutation-editor (`key` input) accept scope-prefixed free text (`local.foo` / `global.bar`). To guide authors toward declared variables, each component gains an `@Input() availableKeys: string[] = []` and renders a single `<datalist>` element (outside the `@for` loop) populated from that list. The `key` input's `list` attribute points to the datalist by a fixed per-component id.
+
+The list is computed in `terminal-editor.ts` from `stateLocal` and `stateGlobal` FormArrays, updated reactively via `merge(stateLocal.valueChanges, stateGlobal.valueChanges).pipe(startWith(null))`, and threaded as `@Input()` through `nodes-section → node-editor → mutation-editor / condition-builder`. The recursive `<app-condition-builder>` self-usage also passes `[availableKeys]` down.
+
+HTML `<datalist>` is chosen over a custom dropdown: zero extra dependencies, native browser autocomplete UX, and free-text entry is still allowed (for keys referencing variables not yet declared, which is a valid intermediate state).
+
+**Alternative considered:** a `<select>` restricted to declared keys. Rejected — blocks authoring if the author wants to type the key before declaring the variable, which is a natural sequence.
+
+### D13 — Per-node login gate: `loginUsers` in each node FormGroup
+
+The terminal JSON supports `node.login.users: string[]` (§5.5 of the authoring guide) to gate a node behind a fictional-login challenge. The initial implementation omitted this field.
+
+**Form model:** each node group gains `loginUsers: FormControl<string[]>` (initial value: `node.login?.users ?? []`). Serialization: `loginUsers.length > 0` → emit `"login": { "users": loginUsers }`; omit otherwise (clean round-trip for nodes that have no gate).
+
+**UI:** a `<select multiple>` in the node editor, populated from `availableUsernames: string[]` (threaded `terminal-editor → nodes-section → node-editor`, computed as `usersArray.controls.map(c => c.get('username')?.value).filter(Boolean)`). When `availableUsernames` is empty, a note directs the author to declare users in the Utenti fittizi section first.
+
+**Alternative considered:** free-text tag array (comma-separated or add/remove inputs). Rejected — usernames must match top-level `login.users` entries per the spec; a `<select multiple>` constrained to declared users enforces correctness and prevents silent typos.
+
+### D14 — AND/OR at root level: leaf-to-combo conversion via `@Output() convert`
+
+**Problem:** `makeChoiceGroup`, `makeVariantGroup`, and `makeBranchGroup` initialize the `when` group as `makeLeafGroup()`. The condition builder's `+ AND` / `+ OR` buttons only appear in combo mode, making AND/OR unreachable from a freshly-created root condition.
+
+**Fix:** the condition builder leaf row gains two buttons: "Converti in AND" and "Converti in OR". Clicking one runs `wrapInCombo(kind)`:
+1. Create a new combo group (`makeComboGroup(kind)`).
+2. Push a clone of the current leaf (`key`, `op`, `value`) into the combo's `children`.
+3. Emit the combo via `@Output() convert: EventEmitter<FormGroup>`.
+
+**Parent wiring:**
+- Inside the recursive combo template (children array): `(convert)="replaceChild(i, $event)"` — handled entirely within `condition-builder.ts` via `children.setControl(i, newGroup)`.
+- Root call sites in `node-editor.ts`: `(convert)="replaceChoiceWhen(ci, $event)"`, `(convert)="replaceVariantWhen(vi, $event)"`, `(convert)="replaceBranchWhen(comp, bi, $event)"` — each calls the enclosing FormGroup's `setControl('when', newGroup)`.
+
+No schema change. A single-child AND is valid per the condition schema and serializes to `{ "and": [{ "key": ..., "<op>": ... }] }`. The round-trip is stable.
+
+**Alternative considered:** always initialize root conditions as combo groups (default to AND with empty children). Rejected — changes the serialized output for every existing simple condition (`{ "and": [{ key, eq: val }] }` instead of `{ key, eq: val }`), which breaks the round-trip stability criterion and adds noise to exports.
+
+### D15 — Two identifiers: server-owned `id` vs. user-authored `hiddenId`
+
+A terminal has **two** distinct identifiers, and the initial Slice 5 implementation conflated them (it displayed `meta.id`, serialized `meta.id` back on save, and treated the sidecar `hiddenId` as a server-generated codename).
+
+| | `id` (a.k.a. `meta.id`) | `hiddenId` (`meta.hiddenId`) |
+|---|---|---|
+| Owner | Server | Author (human) |
+| Purpose | The identifier used in **API call paths** (`/terminals/:id`, `PUT`, export, delete) | A friendly, optional slug for hidden-terminal lookup |
+| Uniqueness | Globally unique (server-assigned) | Unique **within the campaign**, enforced only when present |
+| UI visibility | **Never shown** in the UI | The only id surfaced in the UI (detail page, list "Codename" column, metadata editor) |
+| Lifecycle | Injected by the API on every read; **not sent** by the client on create/import/update; **stripped** from exports | Round-trips on import/export; editable in the metadata section |
+
+**Schema (additive):** `MetaSchema.id` becomes `optional()` (present on reads, absent on writes/exports) and `MetaSchema.hiddenId: z.string().optional()` is added.
+
+**Mapping (`terminal-form.ts`):** the meta `FormGroup` keeps `id` (loaded for reference, never displayed) and gains a `hiddenId` control. `toContent` omits `id` entirely and emits `hiddenId` only when non-empty (pruned-optional rule, D8).
+
+**Mock (`terminals.handlers.ts`):** stored content carries no `meta.id`; `withMetaId` injects it on `GET`/`PUT` responses; `stripMetaId` removes it on create/import/update; export returns content without `id`. The DTO `hiddenId` is sourced from `content.meta.hiddenId` (no more server codename). create/import/update return **409** when a non-empty `hiddenId` collides with another terminal in the same campaign.
+
+**UI:** the detail page shows `meta.hiddenId` (when present) instead of `meta.id`; the metadata editor replaces the read-only ID display with an editable "ID nascosto" input; the export filename derives from `hiddenId` (falling back to a title slug) since `meta.id` is no longer present in exports.
+
+**Alternative considered:** keep the server-generated codename as `hiddenId` and leave `meta.id` displayed. Rejected — it contradicts the authoring guide (the real API strips `meta.id` and treats `hiddenId` as author-owned), and exposing the API id in the UI invites authors to reference an unstable, server-owned value.
+
+### D16 — `hiddenId` resolution endpoint
+
+`GET /campaigns/:campaignId/terminals/by-hidden-id/:hiddenId` is the **only** API call keyed on `hiddenId`; every other terminal call uses the server-owned `id`. `TerminalsApiService.getByHiddenId(campaignId, hiddenId): Observable<TerminalDto>` issues it, and the mock resolves the matching record (404 if none). It is exposed as the canonical lookup path so any future "open hidden terminal by slug" flow uses it rather than inventing another hiddenId-keyed route.
+
 ## Migration Plan
 
 Additive. New editor files under `src/app/features/terminals/editor/`, one new API method, one new MSW handler, one new dependency. The only modification to existing behavior is replacing the detail-page placeholder with the editor — the metadata panel and export button remain. Rollback: revert the slice's commits and remove the `ngx-markdown` dependency; the detail page returns to the Slice 4 placeholder and the rest of the app is unaffected.
@@ -171,5 +236,5 @@ Additive. New editor files under `src/app/features/terminals/editor/`, one new A
 ## Open Questions
 
 - **`ngx-markdown` version for Angular 21** — confirm a compatible release exists during implementation; if not, decide between an `overrides` pin and deferring the preview pane to a follow-up. (Default: pin a compatible version.)
-- **Cross-validate condition/mutation keys against declared state variables?** — Deferred Nice-to-Have. This slice validates key *shape* only.
+- **Cross-validate condition/mutation keys against declared state variables?** — ~~Deferred Nice-to-Have.~~ **Partially addressed by D12:** native `<datalist>` autocomplete provides soft guidance toward declared keys. Full hard validation (blocking save if a key is undeclared) remains a Nice-to-Have for a follow-up slice.
 - **Should discard prompt for confirmation when dirty?** — Default: yes, a small confirm to avoid accidental loss; revisit if it feels heavy.

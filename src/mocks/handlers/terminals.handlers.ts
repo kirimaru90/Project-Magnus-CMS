@@ -12,14 +12,11 @@ function uuid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function codename(): string {
-  return `TRM-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-}
-
 interface TerminalRecord {
   id: string;
-  hiddenId: string;
   campaignId: string;
+  // Stored content never carries meta.id (server-owned, injected on read).
+  // meta.hiddenId is the user-authored, per-campaign-unique slug.
   content: TerminalContent;
   views?: number;
   createdAt: string;
@@ -32,12 +29,11 @@ const terminalsStore = new Map<string, TerminalRecord>();
 const seed: Omit<TerminalRecord, 'updatedAt'>[] = [
   {
     id: 'terminal-omega',
-    hiddenId: 'TRM-OMEGA',
     campaignId: 'campaign-alpha',
     views: 42,
     createdAt: '2026-01-12T09:30:00.000Z',
     content: {
-      meta: { id: 'omega-terminale', title: 'Terminale Omega', public: false },
+      meta: { title: 'Terminale Omega', public: false, hiddenId: 'omega-admin' },
       state: { local: {}, global: {} },
       login: { users: [] },
       nodes: { start: { text: 'Benvenuto nel Terminale Omega.', choices: [] } },
@@ -45,12 +41,11 @@ const seed: Omit<TerminalRecord, 'updatedAt'>[] = [
   },
   {
     id: 'terminal-gamma',
-    hiddenId: 'TRM-GAMMA',
     campaignId: 'campaign-alpha',
     // views intentionally omitted to exercise the undefined case
     createdAt: '2026-02-03T14:05:00.000Z',
     content: {
-      meta: { id: 'gamma-terminale', title: 'Terminale Gamma', public: true },
+      meta: { title: 'Terminale Gamma', public: true, hiddenId: 'gamma-access' },
       state: {
         local: {
           access_count: { type: 'number', default: 0 },
@@ -67,11 +62,33 @@ for (const s of seed) {
   terminalsStore.set(s.id, { ...s, updatedAt: s.createdAt });
 }
 
+/** Strip the server-owned meta.id before storing client-supplied content. */
+function stripMetaId(content: TerminalContent): TerminalContent {
+  const meta = { ...content.meta };
+  delete meta.id;
+  return { ...content, meta };
+}
+
+/** Inject the server-owned meta.id for reads (GET / PUT response). */
+function withMetaId(content: TerminalContent, id: string): TerminalContent {
+  return { ...content, meta: { ...content.meta, id } };
+}
+
+/** hiddenId must be unique within a campaign (only checked when present). */
+function hiddenIdTaken(campaignId: string, hiddenId: string, exceptId?: string): boolean {
+  for (const r of terminalsStore.values()) {
+    if (r.campaignId === campaignId && r.id !== exceptId && r.content.meta.hiddenId === hiddenId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function toDto(record: TerminalRecord): TerminalDto {
   return {
     id: record.id,
-    hiddenId: record.hiddenId,
-    meta: record.content.meta,
+    hiddenId: record.content.meta.hiddenId,
+    meta: { ...record.content.meta, id: record.id },
     campaignId: record.campaignId,
     views: record.views,
     createdAt: record.createdAt,
@@ -83,23 +100,43 @@ export const terminalsHandlers = [
   // Import before create to match more specific path first
   http.post(`${base}/campaigns/:campaignId/terminals/import`, async ({ params, request }) => {
     const campaignId = params['campaignId'] as string;
-    const content = (await request.json().catch(() => null)) as TerminalContent | null;
-    if (!content) {
+    const body = (await request.json().catch(() => null)) as TerminalContent | null;
+    if (!body) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+    const content = stripMetaId(body);
+    const hiddenId = content.meta.hiddenId;
+    if (hiddenId && hiddenIdTaken(campaignId, hiddenId)) {
+      return HttpResponse.json(
+        { message: `hiddenId "${hiddenId}" già in uso in questa campagna` },
+        { status: 409 },
+      );
     }
     const id = uuid();
     const now = new Date().toISOString();
     const record: TerminalRecord = {
       id,
-      hiddenId: codename(),
       campaignId,
-      content: { ...content, meta: { ...content.meta, id } },
+      content,
       views: 0,
       createdAt: now,
       updatedAt: now,
     };
     terminalsStore.set(id, record);
     return HttpResponse.json(toDto(record), { status: 201 });
+  }),
+
+  // Resolve a terminal by user-authored hiddenId (the only hiddenId-keyed endpoint)
+  http.get(`${base}/campaigns/:campaignId/terminals/by-hidden-id/:hiddenId`, ({ params }) => {
+    const campaignId = params['campaignId'] as string;
+    const hiddenId = params['hiddenId'] as string;
+    const record = Array.from(terminalsStore.values()).find(
+      (t) => t.campaignId === campaignId && t.content.meta.hiddenId === hiddenId,
+    );
+    if (!record) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+    }
+    return HttpResponse.json(toDto(record));
   }),
 
   http.get(`${base}/campaigns/:campaignId/terminals`, ({ params }) => {
@@ -112,15 +149,22 @@ export const terminalsHandlers = [
 
   http.post(`${base}/campaigns/:campaignId/terminals`, async ({ params, request }) => {
     const campaignId = params['campaignId'] as string;
-    const content = (await request.json().catch(() => null)) as TerminalContent | null;
-    if (!content) {
+    const body = (await request.json().catch(() => null)) as TerminalContent | null;
+    if (!body) {
       return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+    const content = stripMetaId(body);
+    const hiddenId = content.meta.hiddenId;
+    if (hiddenId && hiddenIdTaken(campaignId, hiddenId)) {
+      return HttpResponse.json(
+        { message: `hiddenId "${hiddenId}" già in uso in questa campagna` },
+        { status: 409 },
+      );
     }
     const id = uuid();
     const now = new Date().toISOString();
     const record: TerminalRecord = {
       id,
-      hiddenId: codename(),
       campaignId,
       content,
       views: 0,
@@ -137,7 +181,30 @@ export const terminalsHandlers = [
     if (!record) {
       return HttpResponse.json({ message: 'Not found' }, { status: 404 });
     }
-    return HttpResponse.json(record.content);
+    return HttpResponse.json(withMetaId(record.content, record.id));
+  }),
+
+  http.put(`${base}/terminals/:id`, async ({ params, request }) => {
+    const id = params['id'] as string;
+    const record = terminalsStore.get(id);
+    if (!record) {
+      return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+    }
+    const body = (await request.json().catch(() => null)) as TerminalContent | null;
+    if (!body) {
+      return HttpResponse.json({ message: 'Invalid body' }, { status: 400 });
+    }
+    const content = stripMetaId(body);
+    const hiddenId = content.meta.hiddenId;
+    if (hiddenId && hiddenIdTaken(record.campaignId, hiddenId, id)) {
+      return HttpResponse.json(
+        { message: `hiddenId "${hiddenId}" già in uso in questa campagna` },
+        { status: 409 },
+      );
+    }
+    record.content = content;
+    record.updatedAt = new Date().toISOString();
+    return HttpResponse.json(withMetaId(record.content, record.id));
   }),
 
   http.delete(`${base}/terminals/:id`, ({ params }) => {
@@ -155,6 +222,7 @@ export const terminalsHandlers = [
     if (!record) {
       return HttpResponse.json({ message: 'Not found' }, { status: 404 });
     }
+    // Export strips meta.id (already absent from stored content) so the file re-imports cleanly.
     return HttpResponse.json(record.content);
   }),
 ];

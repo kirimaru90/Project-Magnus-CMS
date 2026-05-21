@@ -41,6 +41,10 @@ On "Salva" the editor SHALL call `form.getRawValue()`, serialize it to canonical
 - **WHEN** `PUT /terminals/:id` returns a non-2xx response
 - **THEN** the form remains dirty, the changes are not lost, and the API error message is displayed
 
+#### Scenario: Server-owned id is not sent on save
+- **WHEN** the editor serializes a loaded terminal for save
+- **THEN** the body has no `meta.id` (server-owned), and `meta.hiddenId` is present only when the author set it
+
 ### Requirement: Validation errors surface inline against offending fields
 When `TerminalContentSchema.safeParse` fails on save, the editor SHALL map each Zod issue to the corresponding form control using the issue path and set a validation error on that control so the message appears next to the offending field. When an issue path cannot be resolved to a control, the editor SHALL render it in a summary list (path + message) so no error is silently dropped. No `PUT` SHALL be issued while validation errors exist.
 

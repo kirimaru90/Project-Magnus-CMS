@@ -3,7 +3,13 @@ import { z } from 'zod';
 // ── Meta ──────────────────────────────────────────────────────────────────────
 
 export const MetaSchema = z.object({
-  id: z.string(),
+  // Server-owned API identifier. Injected by the API on every read; never sent by the
+  // client on create/import/update and stripped from exports. Used only in API call paths
+  // (e.g. /terminals/:id), never displayed in the UI.
+  id: z.string().optional(),
+  // User-authored, human-friendly slug. Optional and unique within the campaign (only
+  // enforced when present). Round-trips on import/export and is the only id surfaced in the UI.
+  hiddenId: z.string().optional(),
   title: z.string().min(1),
   public: z.boolean(),
 });

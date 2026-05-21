@@ -7,11 +7,12 @@ import { Toast } from 'primeng/toast';
 import { CurrentCampaignService } from '../../core/campaign/current-campaign.service';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
 import { exportTerminal } from './export-terminal';
+import { TerminalEditorComponent } from './editor/terminal-editor';
 
 @Component({
   selector: 'app-terminal-detail',
   standalone: true,
-  imports: [RouterLink, Toast],
+  imports: [RouterLink, Toast, TerminalEditorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p-toast />
@@ -55,18 +56,16 @@ import { exportTerminal } from './export-terminal';
                 <td style="padding: 9px 12px 9px 0;">{{ campaignName() }}</td>
               </tr>
             }
-            @if (t.meta.id) {
+            @if (t.meta.hiddenId) {
               <tr>
-                <td style="padding: 9px 12px; color: var(--bo-text-faint); white-space: nowrap; width: 1%;">ID</td>
-                <td style="padding: 9px 12px 9px 0; font-family: monospace;">{{ t.meta.id }}</td>
+                <td style="padding: 9px 12px; color: var(--bo-text-faint); white-space: nowrap; width: 1%;">ID nascosto</td>
+                <td style="padding: 9px 12px 9px 0; font-family: monospace;">{{ t.meta.hiddenId }}</td>
               </tr>
             }
           </table>
         </div>
 
-        <div class="bo-card" style="padding: 32px; text-align: center; color: var(--bo-text-faint); border: 2px dashed var(--bo-border);">
-          Editor del contenuto disponibile nello Slice 5
-        </div>
+        <app-terminal-editor [terminalId]="terminalId" [content]="t" />
       } @else {
         <div class="bo-card" style="text-align: center; color: var(--bo-text-faint); padding: 32px;">
           Caricamento…
@@ -81,7 +80,7 @@ export class TerminalDetailPage {
   private readonly messageService = inject(MessageService);
   private readonly route = inject(ActivatedRoute);
 
-  private readonly terminalId = this.route.snapshot.params['id'] as string;
+  protected readonly terminalId = this.route.snapshot.params['id'] as string;
 
   protected readonly notFound = signal(false);
 

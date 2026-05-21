@@ -1,16 +1,9 @@
 import { TerminalContent, TerminalContentSchema } from '../../domain/terminal-schema';
 
-function slugify(title: string): string {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return slug || crypto.randomUUID();
-}
-
 export function buildTerminalStub(opts: { title: string; public: boolean }): TerminalContent {
+  // No meta.id: it is server-owned and assigned by the API on create.
   const stub = {
-    meta: { id: slugify(opts.title), title: opts.title, public: opts.public },
+    meta: { title: opts.title, public: opts.public },
     state: { local: {}, global: {} },
     login: { users: [] },
     nodes: {
