@@ -2,20 +2,24 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, EMPTY, switchMap } from 'rxjs';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
 import { Toast } from 'primeng/toast';
 import { CurrentCampaignService } from '../../core/campaign/current-campaign.service';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
 import { exportTerminal } from './export-terminal';
 import { TerminalEditorComponent } from './editor/terminal-editor';
+import { TerminalStatePanelComponent } from './terminal-state-panel';
 
 @Component({
   selector: 'app-terminal-detail',
   standalone: true,
-  imports: [RouterLink, Toast, TerminalEditorComponent],
+  imports: [RouterLink, Toast, ConfirmDialog, TerminalEditorComponent, TerminalStatePanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [ConfirmationService, MessageService],
   template: `
     <p-toast />
+    <p-confirmdialog />
 
     <div class="bo-page">
       @if (notFound()) {
@@ -65,7 +69,9 @@ import { TerminalEditorComponent } from './editor/terminal-editor';
           </table>
         </div>
 
-        <app-terminal-editor [terminalId]="terminalId" [content]="t" />
+        <app-terminal-editor [terminalId]="terminalId" [content]="t" [campaignId]="currentCampaign.currentCampaign()?.id" (saved)="saveVersion.update(v => v + 1)" />
+
+        <app-terminal-state-panel [terminalId]="terminalId" [refreshTrigger]="saveVersion()" />
       } @else {
         <div class="bo-card" style="text-align: center; color: var(--bo-text-faint); padding: 32px;">
           Caricamento…
@@ -76,13 +82,14 @@ import { TerminalEditorComponent } from './editor/terminal-editor';
 })
 export class TerminalDetailPage {
   private readonly terminalsApi = inject(TerminalsApiService);
-  private readonly currentCampaign = inject(CurrentCampaignService);
+  protected readonly currentCampaign = inject(CurrentCampaignService);
   private readonly messageService = inject(MessageService);
   private readonly route = inject(ActivatedRoute);
 
   protected readonly terminalId = this.route.snapshot.params['id'] as string;
 
   protected readonly notFound = signal(false);
+  protected readonly saveVersion = signal(0);
 
   protected readonly terminal = toSignal(
     this.terminalsApi.get(this.terminalId).pipe(

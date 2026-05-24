@@ -23,7 +23,7 @@ interface TerminalRecord {
   updatedAt: string;
 }
 
-const terminalsStore = new Map<string, TerminalRecord>();
+export const terminalsStore = new Map<string, TerminalRecord>();
 
 // Seed two fixture terminals for the first fixture campaign
 const seed: Omit<TerminalRecord, 'updatedAt'>[] = [
@@ -34,7 +34,12 @@ const seed: Omit<TerminalRecord, 'updatedAt'>[] = [
     createdAt: '2026-01-12T09:30:00.000Z',
     content: {
       meta: { title: 'Terminale Omega', public: false, hiddenId: 'omega-admin' },
-      state: { local: {}, global: {} },
+      state: {
+        local: {},
+        global: {
+          session_active: { type: 'boolean', default: false },
+        },
+      },
       login: { users: [] },
       nodes: { start: { text: 'Benvenuto nel Terminale Omega.', choices: [] } },
     },

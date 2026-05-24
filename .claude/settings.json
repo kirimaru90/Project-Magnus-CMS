@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(opsx:apply)",
+      "Skill(opsx:apply:*)",
+      "Bash(npm start *)",
+      "Bash(Select-Object -Last 30)",
+      "PowerShell(npm run lint 2>&1)",
+      "PowerShell(npm run typecheck 2>&1)",
+      "PowerShell(\"=== TYPECHECK ===\")",
+      "Bash(Get-Content \"openspec/changes/slice-6-state-viewer-resets/tasks.md\")",
+      "Bash(Select-String -Pattern \"- \\\\[ \\\\]\")",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)"
+    ]
+  }
+}

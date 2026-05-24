@@ -1,18 +1,19 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { Toast } from 'primeng/toast';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { CampaignsApiService } from '../../core/campaign/campaigns-api.service';
 import type { CampaignDto } from '../../core/campaign/campaign.types';
 import { CampaignPlayersPanelComponent } from './campaign-players-panel';
+import { CampaignStatePanelComponent } from './campaign-state-panel';
 
 @Component({
   selector: 'app-campaign-detail-page',
   standalone: true,
-  imports: [RouterLink, Toast, ConfirmDialog, CampaignPlayersPanelComponent],
+  imports: [RouterLink, Toast, ConfirmDialog, CampaignPlayersPanelComponent, CampaignStatePanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [MessageService],
+  providers: [ConfirmationService, MessageService],
   template: `
     <p-toast />
     <p-confirmdialog />
@@ -39,6 +40,8 @@ import { CampaignPlayersPanelComponent } from './campaign-players-panel';
         </div>
 
         <app-campaign-players-panel [campaign]="campaign()!" />
+
+        <app-campaign-state-panel [campaign]="campaign()!" />
       } @else {
         <div style="padding: 48px 0; text-align: center;">
           Caricamento…

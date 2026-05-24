@@ -1,11 +1,13 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { FormArray, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { merge } from 'rxjs';
 import { startWith } from 'rxjs/operators';
 import { MessageService } from 'primeng/api';
 import { TerminalsApiService } from '../../../core/terminal/terminals-api.service';
+import { CampaignGlobalSchemaApiService } from '../../../core/state/campaign-global-schema-api.service';
 import type { TerminalContent } from '../../../domain/terminal-schema';
 import { TerminalContentSchema } from '../../../domain/terminal-schema';
+import type { GlobalSchemaDto } from '../../../core/state/state.types';
 import { resolveControlByPath, toContent, toForm } from './terminal-form';
 import { MetadataSectionComponent } from './metadata-section';
 import { StateSchemaSectionComponent } from './state-schema-section';
@@ -57,7 +59,7 @@ import { NodesSectionComponent } from './nodes-section';
       }
 
       <app-metadata-section [metaGroup]="metaGroup" />
-      <app-state-schema-section [localVars]="localVarsArray" [globalVars]="globalVarsArray" />
+      <app-state-schema-section [localVars]="localVarsArray" [globalVars]="globalVarsArray" [campaignGlobalSchema]="campaignGlobalSchema()" />
       <app-fictional-users-section [users]="usersArray" />
       <app-nodes-section [nodes]="nodesArray" [availableUsernames]="availableUsernames" [availableKeys]="availableKeys" />
     </div>
@@ -74,10 +76,15 @@ import { NodesSectionComponent } from './nodes-section';
 export class TerminalEditorComponent implements OnInit {
   @Input({ required: true }) terminalId!: string;
   @Input({ required: true }) content!: TerminalContent;
+  @Input() campaignId?: string;
+  @Output() readonly saved = new EventEmitter<void>();
 
   private readonly terminalsApi = inject(TerminalsApiService);
+  private readonly globalSchemaApi = inject(CampaignGlobalSchemaApiService);
   private readonly messageService = inject(MessageService);
   private readonly cdr = inject(ChangeDetectorRef);
+
+  protected readonly campaignGlobalSchema = signal<GlobalSchemaDto | null>(null);
 
   protected form!: FormGroup;
   protected dirty = false;
@@ -91,6 +98,11 @@ export class TerminalEditorComponent implements OnInit {
   ngOnInit(): void {
     this.baseline = this.content;
     this.buildForm(this.content);
+    if (this.campaignId) {
+      this.globalSchemaApi.getSchema(this.campaignId).subscribe({
+        next: (schema) => this.campaignGlobalSchema.set(schema),
+      });
+    }
   }
 
   private buildForm(content: TerminalContent): void {
@@ -187,6 +199,7 @@ export class TerminalEditorComponent implements OnInit {
       next: (saved) => {
         this.baseline = saved;
         this.buildForm(saved);
+        this.saved.emit();
         this.messageService.add({
           severity: 'success',
           summary: 'Salvato',

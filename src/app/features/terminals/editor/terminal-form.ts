@@ -64,6 +64,7 @@ export interface VariantRow {
   when: ConditionRaw | null;
   text: string;
   choices: ChoiceRow[];
+  components: ComponentRow[];
 }
 
 export interface BranchRow {
@@ -270,16 +271,21 @@ function makeVariantGroup(v?: NodeVariant): FormGroup {
     when: v?.when ? loadConditionGroup(v.when) : makeLeafGroup(),
     text: new FormControl(v?.text ?? ''),
     choices: new FormArray<FormGroup>((v?.choices ?? []).map((c) => makeChoiceGroup(c))),
+    components: new FormArray<FormGroup>((v?.components ?? []).map((c) => makeComponentGroup(c))),
   });
 }
 
 function serializeVariants(rows: VariantRow[]): NodeVariant[] {
   return rows.map((r) => {
-    if (r.isDefault) return { default: true as const };
     const v: NodeVariant = {};
-    if (r.when) v.when = serializeCondition(r.when);
+    if (r.isDefault) {
+      v.default = true;
+    } else if (r.when) {
+      v.when = serializeCondition(r.when);
+    }
     if (r.text.trim()) v.text = r.text;
     if (r.choices?.length) v.choices = serializeChoices(r.choices);
+    if (r.components?.length) v.components = serializeComponents(r.components);
     return v;
   });
 }
@@ -476,4 +482,4 @@ function mapSchemaFieldToForm(field: string): string {
 
 // ── Factory helpers (used by child components) ────────────────────────────────
 
-export { makeLeafGroup, makeComboGroup, makeMutationGroup, makeChoiceGroup, makeVariantGroup, makeBranchGroup, makeComponentGroup, makeNodeGroup, emptyStateVarGroup, serializeCondition, serializeMutations };
+export { makeLeafGroup, makeComboGroup, makeMutationGroup, makeChoiceGroup, makeVariantGroup, makeBranchGroup, makeComponentGroup, makeNodeGroup, makeStateVarGroup, emptyStateVarGroup, serializeCondition, serializeMutations };

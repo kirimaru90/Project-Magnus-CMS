@@ -51,7 +51,7 @@
 - [x] 7.2 Create `editor/node-editor.ts`: Markdown `text` textarea + `<markdown [data]>` preview pane; omit blank text on serialize
 - [x] 7.3 Add the node `on_enter` editor using the mutation editor (6.1); omit when empty
 - [x] 7.4 Add the choices editor (FormArray): label (required) + target, optional `when` (condition builder), optional `set` (mutation editor); prune empty optionals
-- [x] 7.5 Add the variants editor (FormArray): conditional variant (`when` + optional alt `text`/`choices`) vs. default-fallback toggle (`default: true`, no `when`); enforce at-most-one default
+- [x] 7.5 Add the variants editor (FormArray): conditional variant (`when` + optional alt `text`/`choices`) vs. default-fallback toggle (`default: true`, no `when`); enforce at-most-one default — _extended by §11 (D17): variants become full-node tabbed editors with `components`_
 - [x] 7.6 Add the input-component editor: `placeholder`, `set` target, `branches` FormArray (conditional `when`+`target` or default `{default:true,target}`); enforce at-most-one default branch; serialize as `{ type:'input', placeholder, set, branches }`
 
 ## 9. Fixes and enhancements (post-initial-implementation)
@@ -105,6 +105,38 @@
 - [x] 10.12 Round-trip: author a `hiddenId`, save, export → the export contains `meta.hiddenId` and no `meta.id`; re-import yields the same `hiddenId`
 - [x] 10.13 Confirm the API path id (`meta.id`) is never rendered in the detail page, metadata editor, or list
 - [x] 10.14 Confirm `getByHiddenId` resolves a seeded terminal (e.g. `omega-admin`) to its DTO and 404s on an unknown slug
+
+## 11. Variants as full-node tabbed editors (D17)
+
+Supersedes the thin variant editor from task 7.5: a variant becomes a full node rendering (text + choices + components), edited in a per-node tab strip.
+
+### 11a — Schema and form mapping
+
+- [x] 11.1 In `terminal-schema.ts`: add `components: z.array(NodeComponentSchema).optional()` to `NodeVariantSchema` (additive; `on_enter` stays node-only and variants remain non-recursive)
+- [x] 11.2 In `terminal-form.ts`: add `components: ComponentRow[]` to the `VariantRow` interface; in `makeVariantGroup` add a `components` `FormArray` built from `v?.components` via `makeComponentGroup` (reuse the existing helper)
+- [x] 11.3 In `terminal-form.ts`: in `serializeVariants` emit `components` (via `serializeComponents`) when the array is non-empty, omit otherwise (D8 pruning); confirm `text`/`choices`/`when`/`default` pruning is unchanged
+
+### 11b — Tabbed variant UI in `node-editor.ts`
+
+- [x] 11.4 Replace the inline variants `@for` block with a **tab strip**: render the node-level (default) content as the first tab, one tab per variant, and a trailing "+" add tab; hide the strip entirely when `variantsArray.length === 0` (edit node-level content directly, as today)
+- [x] 11.5 Track the active tab (signal/index); render only the active tab's sub-editors (`@if`) to keep change detection cheap under `OnPush`
+- [x] 11.6 In each variant tab reuse the node's content sub-editors — Markdown `text` + `<markdown>` preview, the choices editor, and the input-components editor — but render **no** `on_enter` editor and **no** nested variants strip (extract shared content sub-editors if needed to avoid duplication)
+- [x] 11.7 Keep the conditional-vs-default selector per variant (`isDefault` toggle + condition builder `when` with the existing `replaceVariantWhen` convert wiring); order the `default: true` variant's tab first; keep the at-most-one-default inline error
+- [x] 11.8 Wire `addVariant()` to the "+" tab and `removeVariant(i)` to a per-tab remove control; when the last variant is removed the strip hides and `variants` is omitted on save ("one variant = no variants")
+- [x] 11.9 Thread `availableKeys` and `availableUsernames` (D12/D13) into the variant tabs' choices/components editors so autocomplete and login context work inside variants too
+
+### 11c — Verification
+
+- [x] 11.10 Author a node with two conditional variants (each with distinct text, a conditional choice with a `set`, and an input component) plus a default fallback; save and confirm the serialized `variants` carry `text`/`choices`/`components` and the default is first with `default: true`
+- [x] 11.11 Confirm the tab strip is hidden for a node with no variants, appears on adding one, and disappears again when the last variant is removed (no `variants` key serialized)
+- [x] 11.12 Round-trip: export a terminal authored with variant `components`, re-import via the Slice 4 path, confirm it validates against the updated schema and is semantically identical
+- [x] 11.13 Re-run `npm run lint` and `npm run typecheck` — zero errors
+
+## 12. Accent emphasis on node header and active variant tab (D18)
+
+- [x] 12.1 In `node-editor.ts`: restyle `.tab-btn.active` to use the accent background (`var(--bo-accent)`), accent border, and inverse text (`var(--bo-text-inverse)`); recolor the active tab's `.tab-remove` glyph to inverse at rest and danger on hover
+- [x] 12.2 In `nodes-section.ts`: restyle `.node-header` to the accent background with inverse text and an accent bottom border; force the `ID nodo *` `.field-label` to inverse; keep the "Rimuovi nodo" button legible on the accent (inverse text + translucent-white border) reverting to danger red on hover
+- [x] 12.3 Re-run `npm run lint` and `npm run typecheck` — zero errors
 
 ## 8. Verification
 

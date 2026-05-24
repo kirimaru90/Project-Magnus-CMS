@@ -13,6 +13,8 @@ export class ThemeService {
   constructor() {
     effect(() => {
       const value = this.theme();
+      // Mirror onto <html> so PrimeNG's :root[data-theme="dark"] selector fires.
+      document.documentElement.setAttribute('data-theme', value);
       if (this.skipNextPersist) {
         this.skipNextPersist = false;
         return;
@@ -41,6 +43,6 @@ export class ThemeService {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'light';
+    return 'dark';
   }
 }

@@ -3,10 +3,12 @@ import { authHandlers } from './handlers/auth.handlers';
 import { campaignsHandlers } from './handlers/campaigns.handlers';
 import { terminalsHandlers } from './handlers/terminals.handlers';
 import { usersHandlers } from './handlers/users.handlers';
+import { stateHandlers } from './handlers/state.handlers';
 
 export const worker = setupWorker(
   ...authHandlers,
   ...campaignsHandlers,
   ...terminalsHandlers,
   ...usersHandlers,
+  ...stateHandlers,
 );

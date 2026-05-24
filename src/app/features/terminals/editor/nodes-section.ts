@@ -46,14 +46,17 @@ import { NodeEditorComponent } from './node-editor';
     .section { margin-bottom: 16px; padding: 16px; }
     .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--bo-text-faint); }
     .node-card { border: 1px solid var(--bo-border, #ddd); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
-    .node-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 12px; background: var(--bo-surface-faint, #f8f8f8); border-bottom: 1px solid var(--bo-border, #ddd); }
+    .node-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 12px; background: var(--bo-accent); color: var(--bo-text-inverse); border-bottom: 1px solid var(--bo-accent); }
     .id-field { display: flex; flex-direction: column; gap: 4px; }
     .field-label { font-size: 13px; font-weight: 500; }
+    .node-header .field-label { color: var(--bo-text-inverse); }
     .field-error { font-size: 12px; color: var(--bo-danger, #c0392b); }
     .field-error.banner { margin-bottom: 12px; }
     .bo-input.sm { padding: 4px 8px; font-size: 13px; }
     .bo-btn.sm { padding: 4px 10px; font-size: 13px; }
     .danger { color: var(--bo-danger, #c0392b); }
+    .node-header .bo-btn.danger { color: var(--bo-text-inverse); border-color: hsl(0 0% 100% / 0.4); }
+    .node-header .bo-btn.danger:hover:not(:disabled) { color: var(--bo-danger, #c0392b); }
   `],
 })
 export class NodesSectionComponent {

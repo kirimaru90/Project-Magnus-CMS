@@ -31,7 +31,7 @@ Relevant existing files:
 - Visual node-graph editor — deferred Nice-to-Have.
 - Terminal state view/edit — Slice 6.
 - Hashing or obfuscation of fictional passwords — explicitly cleartext per the architecture doc.
-- Schema changes — `terminal-content-schema` is consumed unchanged, **except** for the additive `meta.id`/`meta.hiddenId` adjustment in D15 (making `meta.id` optional and adding optional `meta.hiddenId`), which aligns the schema with the authoring guide's id model. No other schema shape changes; if authoring needs a shape the schema forbids, that is a schema bug to triage in its own change.
+- Schema changes — `terminal-content-schema` is consumed unchanged, **except** for two additive adjustments: (a) the `meta.id`/`meta.hiddenId` adjustment in D15 (making `meta.id` optional and adding optional `meta.hiddenId`), and (b) extending `NodeVariantSchema` with an optional `components` array in D17 (so a variant can carry input components, not just `text`/`choices`). Both are additive and align the schema with the authoring guide. No other schema shape changes; if authoring needs a shape the schema forbids, that is a schema bug to triage in its own change.
 - Automated round-trip test in CI — validated manually this slice (consistent with Slice 4 D-level decision).
 
 ## Decisions
@@ -103,7 +103,7 @@ On load, `{ and: [...] }`/`{ or: [...] }` map to the combinator kinds; any singl
 
 `{ default: true }` is, schema-wise, a member of the `Condition` union, but in practice it marks a *fallback* on a `NodeVariant` (`default?: true`) and on an input `Branch` (`{ default: true, target }`). Rather than offer "default" as a condition kind that could be illogically nested inside `and`/`or`, the editor models it where it belongs:
 
-- **Variants:** each variant is either conditional (has a `when` built by the condition builder) or the default fallback (a "Predefinita (fallback)" toggle → emits `default: true`, no `when`). Exactly one variant per node may be the default; a validator enforces at-most-one.
+- **Variants:** each variant is either conditional (has a `when` built by the condition builder) or the default fallback (a "Predefinita (fallback)" toggle → emits `default: true`, no `when`). Exactly one variant per node may be the default; a validator enforces at-most-one. (The variant editor itself is the full-node tabbed editor described in D17.)
 - **Input branches:** each branch is either conditional (`when` + `target`) or the default fallback (toggle → `{ default: true, target }`). At-most-one default per component.
 
 This keeps the recursive condition builder focused on `leaf`/`and`/`or` and prevents nonsensical trees.
@@ -228,6 +228,42 @@ A terminal has **two** distinct identifiers, and the initial Slice 5 implementat
 ### D16 — `hiddenId` resolution endpoint
 
 `GET /campaigns/:campaignId/terminals/by-hidden-id/:hiddenId` is the **only** API call keyed on `hiddenId`; every other terminal call uses the server-owned `id`. `TerminalsApiService.getByHiddenId(campaignId, hiddenId): Observable<TerminalDto>` issues it, and the mock resolves the matching record (404 if none). It is exposed as the canonical lookup path so any future "open hidden terminal by slug" flow uses it rather than inventing another hiddenId-keyed route.
+
+### D17 — Variants as full-node tabbed editors
+
+**Problem:** the initial Slice 5 variant editor (task 7.5) treated a variant as only a `when`/`default` selector plus an alternative `text` and `choices`. That is too thin: authors need a variant to override the node's rendering as a whole — its text, its choices (each with their own conditional `set` mutations), and its input components. A variant is, in practice, "a different node body selected by a condition." The editor must let an author build a variant with the same expressiveness as the node itself.
+
+**Runtime model (from the authoring guide / engine):** at a node the engine evaluates `variants` in order and returns the first whose `when` matches; failing any match it returns the one marked `{ default: true }`; failing that it falls through to the node-level fields. A matched (or default) variant uses its own `text`/`choices`/`components` where defined and falls back to the node-level values for the fields it omits. So node-level fields are the **base/fallback rendering** and `variants[]` are **conditional overrides**.
+
+**Schema (additive):** `NodeVariantSchema` gains `components: z.array(NodeComponentSchema).optional()`. It already has `text` and `choices` (and `choices` already carry `set`). `on_enter` is **not** added to the variant schema: `on_enter` mutations fire when the node is entered, independent of which rendering is selected, so they stay a per-node concern. Variants are **not** made recursive (no `variants` inside a variant). The resulting variant shape is the node body minus `on_enter` and minus `variants`, plus the `when`/`default` selector.
+
+**Form model (`terminal-form.ts`):** `VariantRow` gains `components: ComponentRow[]`; `makeVariantGroup` adds a `components` `FormArray` (reusing `makeComponentGroup`); `serializeVariants` emits `components` when non-empty (pruned per D8). The existing `isDefault`/`when`/`text`/`choices` handling is unchanged.
+
+**UI (`node-editor.ts`):** the node's content region becomes a **tab strip**:
+- The strip is hidden when the node has no variants — the author edits the node-level `text`/`choices`/`components` directly, exactly as today.
+- When ≥1 variant exists, the strip shows the node-level (default) content as the first tab, one tab per variant, and a trailing **"+"** tab that pushes a new variant (`addVariant()`).
+- Each variant tab renders the same content sub-editors the node uses — Markdown `text` + preview, the choices editor, and the input-components editor — but **no** `on_enter` editor and **no** nested variants strip. `on_enter` and the per-node login gate (D13) stay above the strip.
+- Removing a tab calls `removeVariant(i)`; when the last variant is removed the strip disappears. "Having one variant equals having none" is honoured by hiding the strip and omitting `variants` whenever no conditional variant exists alongside the node-level default.
+- The default-fallback variant (`default: true`, at-most-one, enforced by the existing `atMostOneDefaultValidator`) is ordered **first** among the tabs.
+
+To keep change-detection cheap for the now-heavier per-tab content, only the active tab's sub-editors are rendered (`@if` on the selected index), consistent with the `OnPush` strategy used across the editor.
+
+**Round-trip:** the addition is purely additive and obeys D8 pruning, so a variant that defines only `text` still serializes to `{ when, text }`; `components` appears only when the author adds one. Existing exported terminals (no variant `components`) round-trip unchanged.
+
+**Alternative considered:** reuse `makeNodeGroup`/the whole node editor recursively for each variant (so a variant is literally a node). Rejected — it would drag in `on_enter`, a nested variants strip, and an `id` control that variants do not have, contradicting the schema and the runtime model; composing the shared *content* sub-editors (text/choices/components) is the right granularity.
+
+### D18 — Accent emphasis on node header and active variant tab
+
+**Problem:** the node header (the `ID nodo *` row) and the active variant tab used neutral surface tokens (`--bo-surface-faint` / `--bo-bg`), so the active node identity and the active variant did not read as the focal/selected surfaces and were visually disconnected from the rest of the backoffice, which uses the green accent (`--bo-accent`) for primary buttons (`.bo-btn.primary`) and active nav highlights (`.bo-nav a.active`).
+
+**Decision:** apply the existing accent token as a **solid background with inverse text** (`--bo-text-inverse`, the same pairing `.bo-btn.primary` uses) to both surfaces:
+
+- `node-editor.ts` `.tab-btn.active` → `background: var(--bo-accent)`, `border-color: var(--bo-accent)`, `color: var(--bo-text-inverse)`. The tab's remove (`✕`) glyph is recolored to inverse at rest and to the danger color on hover so it stays legible on the accent. Inactive tabs are untouched.
+- `nodes-section.ts` `.node-header` → `background: var(--bo-accent)`, `color: var(--bo-text-inverse)`, accent bottom border; the `ID nodo *` `.field-label` is forced to inverse. The destructive "Rimuovi nodo" button is given inverse text and a translucent-white border at rest (legible on green) and reverts to the danger red on hover, preserving the destructive affordance.
+
+No new tokens are introduced — only the existing themed `--bo-accent` / `--bo-text-inverse` pair, so both light and dark themes follow automatically. No schema, form-model, or serialization change; this is purely presentational.
+
+**Alternative considered:** the soft-accent "menu highlight" pairing (`--bo-accent-soft` background + `--bo-accent-text`) used by `.bo-nav a.active`. Rejected — the request was to change both background and text into the accent, and the solid pairing gives the stronger focal emphasis the node header/active tab warrant; the soft pairing keeps near-neutral text and reads as a subtle hover rather than a selected surface.
 
 ## Migration Plan
 

@@ -115,13 +115,6 @@ export const NodeChoiceSchema = z.object({
   set: z.array(MutationSchema).optional(),
 });
 
-export const NodeVariantSchema = z.object({
-  when: ConditionSchema.optional(),
-  default: z.literal(true).optional(),
-  text: z.string().optional(),
-  choices: z.array(NodeChoiceSchema).optional(),
-});
-
 const BranchSchema = z.union([
   z.object({ when: ConditionSchema, target: z.string() }),
   z.object({ default: z.literal(true), target: z.string() }),
@@ -135,6 +128,14 @@ export const NodeComponentSchema = z.discriminatedUnion('type', [
     branches: z.array(BranchSchema),
   }),
 ]);
+
+export const NodeVariantSchema = z.object({
+  when: ConditionSchema.optional(),
+  default: z.literal(true).optional(),
+  text: z.string().optional(),
+  choices: z.array(NodeChoiceSchema).optional(),
+  components: z.array(NodeComponentSchema).optional(),
+});
 
 export const TerminalNodeSchema = z.object({
   text: z.string().optional(),
