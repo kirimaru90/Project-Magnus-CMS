@@ -68,7 +68,6 @@ import { ImportTerminalDialogComponent } from './import-terminal-dialog';
           >
             <ng-template pTemplate="header">
               <tr>
-                <th pSortableColumn="hiddenId">Codename <p-sortIcon field="hiddenId" /></th>
                 <th pSortableColumn="meta.title">Titolo <p-sortIcon field="meta.title" /></th>
                 <th pSortableColumn="meta.public">Pubblico <p-sortIcon field="meta.public" /></th>
                 <th pSortableColumn="views">Visualizzazioni <p-sortIcon field="views" /></th>
@@ -80,7 +79,6 @@ import { ImportTerminalDialogComponent } from './import-terminal-dialog';
 
             <ng-template pTemplate="body" let-terminal>
               <tr>
-                <td>{{ terminal.hiddenId ?? '—' }}</td>
                 <td>
                   <a [routerLink]="['/terminals', terminal.id]">{{ terminal.meta.title }}</a>
                 </td>
@@ -138,7 +136,7 @@ import { ImportTerminalDialogComponent } from './import-terminal-dialog';
 
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td colspan="7" style="text-align: center; color: var(--bo-text-faint);">
+                <td colspan="6" style="text-align: center; color: var(--bo-text-faint);">
                   Nessun terminale in questa campagna
                 </td>
               </tr>

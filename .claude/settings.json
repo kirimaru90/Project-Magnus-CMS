@@ -11,7 +11,23 @@
       "Bash(Get-Content \"openspec/changes/slice-6-state-viewer-resets/tasks.md\")",
       "Bash(Select-String -Pattern \"- \\\\[ \\\\]\")",
       "Bash(Measure-Object -Line)",
-      "Bash(Select-Object -ExpandProperty Lines)"
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); configs=d['projects']['magnus-cms']['architect']['serve']['configurations']; print\\(json.dumps\\(configs, indent=2\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./angular.json'\\); const b=d.projects['magnus-cms'].architect.build; console.log\\('Main:', b.options.main\\); console.log\\('\\\\nFileReplacements:'\\); \\(b.options.fileReplacements||[]\\).forEach\\(r=>console.log\\(' ',r.replace,'->',r.with\\)\\); console.log\\('\\\\nConfigurations:'\\); Object.entries\\(b.configurations||{}\\).forEach\\(\\([k,v]\\)=>{console.log\\('  '+k+':'\\); if\\(v.fileReplacements\\) v.fileReplacements.forEach\\(r=>console.log\\('    replace:',r.replace,'->',r.with\\)\\); if\\(v.main\\) console.log\\('    main:',v.main\\);}\\)\")",
+      "Bash(node -e \"const d=require\\('./angular.json'\\); const keys=Object.keys\\(d.projects\\); console.log\\(keys\\);\")",
+      "Bash(node -e \"const d=require\\('./angular.json'\\); const b=d.projects['magnus-backoffice'].architect.build; console.log\\('Main:', b.options.browser || b.options.main\\); console.log\\('\\\\nFileReplacements \\(options\\):'\\); \\(b.options.fileReplacements||[]\\).forEach\\(r=>console.log\\(' ',r.replace,'->',r.with\\)\\); const configs=b.configurations||{}; Object.entries\\(configs\\).forEach\\(\\([k,v]\\)=>{console.log\\('\\\\nConfig ['+k+']:'\\); if\\(v.fileReplacements\\) v.fileReplacements.forEach\\(r=>console.log\\('    replace:',r.replace,'->',r.with\\)\\); if\\(v.main\\) console.log\\('    main:',v.main\\); if\\(v.browser\\) console.log\\('    browser:',v.browser\\);}\\)\")",
+      "Bash(node -e \"const d=require\\('./angular.json'\\); const s=d.projects['magnus-backoffice'].architect.serve; console.log\\(JSON.stringify\\(s, null, 2\\)\\);\")",
+      "Bash(node -e \"const c = require\\('./angular.json'\\); const configs = c.projects['magnus-backoffice'].architect.serve.configurations; console.log\\(JSON.stringify\\(configs, null, 2\\)\\)\")",
+      "Bash(node -e \"const c = require\\('./angular.json'\\); const configs = c.projects['magnus-backoffice'].architect.build.configurations; console.log\\(JSON.stringify\\(configs, null, 2\\)\\)\")",
+      "Bash(node -e \"const c = require\\('./angular.json'\\); const serve = c.projects['magnus-backoffice'].architect.serve; console.log\\(JSON.stringify\\(serve, null, 2\\)\\)\")",
+      "Skill(openspec-propose)",
+      "Skill(openspec-propose:*)",
+      "Bash(grep -n '^### Requirement:' openspec/specs/__TRACKED_VAR__-msw-handlers/spec.md)",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s.split\\('\\\\n'\\).filter\\(l=>l.trim\\(\\).startsWith\\('{'\\)||l.trim\\(\\).startsWith\\('}'\\)||l.includes\\('\\\\\"'\\)\\).join\\('\\\\n'\\).replace\\(/\\\\\\(node:.*\\\\\\)/g,''\\).replace\\(/\\\\\\(Use.*\\\\\\)/g,''\\)\\);console.log\\('INSTRUCTION:\\\\n'+j.instruction\\);console.log\\('\\\\nTEMPLATE:\\\\n'+j.template\\);console.log\\('\\\\nDEPS:',JSON.stringify\\(j.dependencies.map\\(d=>d.path\\)\\)\\)}\\)\")",
+      "Bash(Read \"C:\\\\Users\\\\PDA88~1.DIP\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-p-dipersio-Documents-Progetti-MAGNUS-CMS\\\\736dcc79-6f31-4190-bdbd-00bfd199e8eb\\\\tasks\\\\bgenw4cqq.output\")",
+      "Bash(findstr /v \"NODE_TLS Warning trace-warnings\")",
+      "Skill(opsx:propose)",
+      "Skill(opsx:propose:*)"
     ]
   }
 }

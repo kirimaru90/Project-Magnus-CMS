@@ -14,8 +14,8 @@ export class AuthService {
 
   async login(creds: LoginDto): Promise<AuthUser> {
     const response = await firstValueFrom(this.api.login(creds));
-    this.persistToken(response.access_token);
-    this.token.set(response.access_token);
+    this.persistToken(response.accessToken);
+    this.token.set(response.accessToken);
     this.currentUser.set(response.user);
     return response.user;
   }

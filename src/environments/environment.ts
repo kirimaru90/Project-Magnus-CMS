@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://TODO-prod-api.example.com/api',
+  apiBaseUrl: 'TODO', // production API URL not yet known
 };

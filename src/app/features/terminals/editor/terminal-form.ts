@@ -387,10 +387,10 @@ function serializeStateScope(rows: StateVarRow[]): Record<string, unknown> {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function toForm(content: TerminalContent): FormGroup {
-  const localVars = Object.entries(content.state.local).map(([name, v]) =>
+  const localVars = Object.entries(content.state.local ?? {}).map(([name, v]) =>
     makeStateVarGroup(name, v as { type: string; default: unknown; values?: string[] }),
   );
-  const globalVars = Object.entries(content.state.global).map(([name, v]) =>
+  const globalVars = Object.entries(content.state.global ?? {}).map(([name, v]) =>
     makeStateVarGroup(name, v as { type: string; default: unknown; values?: string[] }),
   );
   const users = (content.login.users ?? []).map((u) =>

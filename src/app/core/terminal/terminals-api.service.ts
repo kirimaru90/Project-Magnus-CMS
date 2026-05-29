@@ -1,9 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import type { TerminalContent } from '../../domain/terminal-schema';
-import type { TerminalDto } from './terminal.types';
+import {
+  toTerminalDto,
+  type TerminalDetailEnvelope,
+  type TerminalDto,
+  type TerminalListItem,
+} from './terminal.types';
 
 @Injectable({ providedIn: 'root' })
 export class TerminalsApiService {
@@ -11,7 +16,9 @@ export class TerminalsApiService {
   private readonly base = environment.apiBaseUrl;
 
   listByCampaign(campaignId: string): Observable<TerminalDto[]> {
-    return this.http.get<TerminalDto[]>(`${this.base}/campaigns/${campaignId}/terminals`);
+    return this.http
+      .get<TerminalListItem[]>(`${this.base}/campaigns/${campaignId}/terminals`)
+      .pipe(map((rows) => rows.map(toTerminalDto)));
   }
 
   create(campaignId: string, content: TerminalContent): Observable<TerminalDto> {
@@ -26,7 +33,9 @@ export class TerminalsApiService {
   }
 
   get(id: string): Observable<TerminalContent> {
-    return this.http.get<TerminalContent>(`${this.base}/terminals/${id}`);
+    return this.http
+      .get<TerminalDetailEnvelope>(`${this.base}/terminals/${id}`)
+      .pipe(map((r) => r.content));
   }
 
   /**
@@ -44,7 +53,9 @@ export class TerminalsApiService {
   }
 
   update(id: string, content: TerminalContent): Observable<TerminalContent> {
-    return this.http.put<TerminalContent>(`${this.base}/terminals/${id}`, content);
+    return this.http
+      .put<TerminalDetailEnvelope>(`${this.base}/terminals/${id}`, content)
+      .pipe(map((r) => r.content));
   }
 
   export(id: string): Observable<TerminalContent> {
