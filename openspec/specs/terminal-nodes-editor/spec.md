@@ -103,12 +103,28 @@ The nodes editor SHALL use the application's green accent (`--bo-accent`, the sa
 - **WHEN** a variant tab (or the node-level tab) is the active tab
 - **THEN** it is highlighted with the green accent background and inverse text, while inactive tabs keep the neutral surface style
 
+### Requirement: Per-node login user selection as dropdown multiselect
+The node editor SHALL render the per-node "Login nodo" user selection as a dropdown multiselect (PrimeNG `p-multiselect`) bound to the node's `loginUsers` control via `formControlName`, with its options sourced from the declared fictional usernames (`availableUsernames`). Selecting users SHALL produce a `string[]` of usernames identical to the prior control value, preserving serialization to `login.users`. When no fictional usernames are declared, the editor SHALL instead show the existing empty-state hint directing the author to add fictional users.
+
+#### Scenario: Dropdown multiselect rendered when usernames exist
+- **WHEN** the node editor renders and at least one fictional username is declared
+- **THEN** the login selection is a `p-multiselect` dropdown listing the available usernames
+- **AND** no native multiple-listbox and no "Ctrl/Cmd" hint are shown
+
+#### Scenario: Selecting multiple users serializes to login.users
+- **WHEN** the author selects usernames `ada` and `grace` in the login multiselect and saves
+- **THEN** the node serializes `login.users` as `['ada', 'grace']`
+
+#### Scenario: Empty state when no fictional users declared
+- **WHEN** the node editor renders and no fictional usernames are declared
+- **THEN** the login section shows the empty-state hint and no multiselect control
+
 ### Requirement: Input component editor
-Each node SHALL provide a components editor supporting the `input` component type. The same components editor SHALL be reused inside each variant tab (per the variants requirement). An input component SHALL have a **placeholder**, a **set** target variable (scope-prefixed string), and a **branches** `FormArray`. Each branch SHALL be either conditional (a `when` condition + a **target** node) or the default fallback (a toggle that serializes `{ default: true, target }`). At most one branch SHALL be the default fallback. The serialized component SHALL be `{ type: 'input', placeholder, set, branches }`.
+Each node SHALL provide a components editor supporting the `input` component type. The same components editor SHALL be reused inside each variant tab (per the variants requirement). An input component SHALL have a **placeholder**, a **set** target variable (scope-prefixed string), and a **branches** `FormArray`. Each branch SHALL be either conditional (a `when` condition + a **target** node) or the default fallback (a toggle that serializes `{ default: true, target }`). At most one branch SHALL be the default fallback. The serialized component SHALL be `{ type: 'input', placeholder, set, branches }`. A branch `when` SHALL use the canonical condition shape `{ var, op, value }`.
 
 #### Scenario: Input with conditional and default branches
 - **WHEN** the admin adds an input component with placeholder `Codice`, set `local.entered_code`, one branch `{ when: entered_code eq "58874645", target: bunker_aperto }`, and one default branch targeting `bunker_negato`
-- **THEN** the serialized component is `{ "type": "input", "placeholder": "Codice", "set": "local.entered_code", "branches": [ { "when": { "key": "local.entered_code", "eq": "58874645" }, "target": "bunker_aperto" }, { "default": true, "target": "bunker_negato" } ] }`
+- **THEN** the serialized component is `{ "type": "input", "placeholder": "Codice", "set": "local.entered_code", "branches": [ { "when": { "var": "local.entered_code", "op": "eq", "value": "58874645" }, "target": "bunker_aperto" }, { "default": true, "target": "bunker_negato" } ] }`
 
 #### Scenario: At most one default branch
 - **WHEN** two branches are marked as default fallback

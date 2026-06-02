@@ -18,19 +18,19 @@ export interface MutationRow {
   by: number | null;
 }
 
-export type ConditionKind = 'leaf' | 'and' | 'or';
+export type ConditionKind = 'leaf' | 'and' | 'or' | 'not';
 
 export interface ConditionLeafRaw {
   kind: 'leaf';
-  key: string;
+  var: string;
   op: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in';
   value: string;
   children: never[];
 }
 
 export interface ConditionComboRaw {
-  kind: 'and' | 'or';
-  key: string;
+  kind: 'and' | 'or' | 'not';
+  var: string;
   op: string;
   value: string;
   children: ConditionRaw[];
@@ -126,21 +126,21 @@ export function atMostOneDefaultValidator(field: string): ValidatorFn {
 // ── Condition helpers ─────────────────────────────────────────────────────────
 
 function makeLeafGroup(
-  key = '', op: ConditionLeafRaw['op'] = 'eq', value = '',
+  varName = '', op: ConditionLeafRaw['op'] = 'eq', value = '',
 ): FormGroup {
   return new FormGroup({
     kind: new FormControl<'leaf'>('leaf'),
-    key: new FormControl(key),
+    var: new FormControl(varName),
     op: new FormControl(op),
     value: new FormControl(value),
     children: new FormArray([] as FormGroup[]),
   });
 }
 
-function makeComboGroup(kind: 'and' | 'or'): FormGroup {
+function makeComboGroup(kind: 'and' | 'or' | 'not'): FormGroup {
   return new FormGroup({
-    kind: new FormControl<'and' | 'or'>(kind),
-    key: new FormControl(''),
+    kind: new FormControl<'and' | 'or' | 'not'>(kind),
+    var: new FormControl(''),
     op: new FormControl(''),
     value: new FormControl(''),
     children: new FormArray([] as FormGroup[]),
@@ -164,14 +164,31 @@ function loadConditionGroup(cond: Condition): FormGroup {
     }
     return g;
   }
+  if ('not' in cond) {
+    const g = makeComboGroup('not');
+    const children = g.get('children') as FormArray;
+    children.push(loadConditionGroup((cond as { not: Condition }).not));
+    return g;
+  }
   // default: true handled externally — should not arrive here
   const leaf = cond as Record<string, unknown>;
-  const key = leaf['key'] as string;
-  const ops = ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'in'] as const;
-  const op = ops.find((o) => o in leaf) ?? 'eq';
-  const rawVal = leaf[op];
-  const value = Array.isArray(rawVal) ? rawVal.join(',') : String(rawVal ?? '');
-  return makeLeafGroup(key, op, value);
+  // accept both new { var, op, value } and legacy { key, <op>: value } shapes
+  let varName: string;
+  let op: ConditionLeafRaw['op'];
+  let value: string;
+  if ('var' in leaf) {
+    varName = leaf['var'] as string;
+    op = leaf['op'] as ConditionLeafRaw['op'];
+    const rawVal = leaf['value'];
+    value = Array.isArray(rawVal) ? (rawVal as unknown[]).join(',') : String(rawVal ?? '');
+  } else {
+    varName = leaf['key'] as string;
+    const ops = ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'in'] as const;
+    op = ops.find((o) => o in leaf) ?? 'eq';
+    const rawVal = leaf[op];
+    value = Array.isArray(rawVal) ? (rawVal as unknown[]).join(',') : String(rawVal ?? '');
+  }
+  return makeLeafGroup(varName, op, value);
 }
 
 function serializeCondition(raw: ConditionRaw): Condition {
@@ -181,9 +198,12 @@ function serializeCondition(raw: ConditionRaw): Condition {
   if (raw.kind === 'or') {
     return { or: raw.children.map(serializeCondition) };
   }
-  // leaf
+  if (raw.kind === 'not') {
+    return { not: serializeCondition(raw.children[0]) };
+  }
+  // leaf → canonical { var, op, value }
   const val = parseConditionValue(raw.op, raw.value);
-  return { key: raw.key, [raw.op]: val } as Condition;
+  return { var: raw.var, op: raw.op, value: val } as Condition;
 }
 
 function parseConditionValue(op: string, raw: string): unknown {

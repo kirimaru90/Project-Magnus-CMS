@@ -417,6 +417,14 @@
   border: 1px solid var(--bo-border);
   border-radius: var(--bo-radius);
 }
+.bo-card.section { padding: var(--bo-card-pad, 16px); }
+.bo-card-section-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--bo-text-faint);
+}
 .bo-card-head {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px;

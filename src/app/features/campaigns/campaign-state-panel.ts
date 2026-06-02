@@ -5,16 +5,19 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { StateApiService } from '../../core/state/state-api.service';
 import { CampaignGlobalSchemaApiService } from '../../core/state/campaign-global-schema-api.service';
-import type { GlobalVarDecl, MutationAtom, StateEntryDto } from '../../core/state/state.types';
+import { StateSchemaConflictResponseSchema, coerceForType } from '../../core/state/state.schemas';
+import type { MutationAtom, StateEntryDto, StateEntryShape, StateSchemaConflictResponse } from '../../core/state/state.types';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
 import type { CampaignDto } from '../../core/campaign/campaign.types';
+import { CampaignsApiService } from '../../core/campaign/campaigns-api.service';
 import { StateTableComponent } from '../state/state-table';
 import { ResetConfirmComponent } from '../state/reset-confirm';
+import { SchemaConflictDialogComponent } from '../state/schema-conflict-dialog';
 
 @Component({
   selector: 'app-campaign-state-panel',
   standalone: true,
-  imports: [ButtonModule, StateTableComponent, ResetConfirmComponent],
+  imports: [ButtonModule, StateTableComponent, ResetConfirmComponent, SchemaConflictDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-reset-confirm
@@ -24,7 +27,13 @@ import { ResetConfirmComponent } from '../state/reset-confirm';
       (cancelled)="showResetConfirm.set(false)"
     />
 
-    <div class="bo-card" style="margin-top: 16px;">
+    <app-schema-conflict-dialog
+      [visible]="showConflictDialog()"
+      [conflict]="conflictData()"
+      (dismissed)="showConflictDialog.set(false)"
+    />
+
+    <div class="bo-card section" style="margin-top: 16px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <h2 style="margin: 0;">Stato globale</h2>
         <div style="display: flex; gap: 8px;">
@@ -64,20 +73,32 @@ export class CampaignStatePanelComponent implements OnInit {
 
   private readonly stateApi = inject(StateApiService);
   private readonly schemaApi = inject(CampaignGlobalSchemaApiService);
+  private readonly campaignsApi = inject(CampaignsApiService);
   private readonly terminalsApi = inject(TerminalsApiService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
 
   protected readonly entries = signal<StateEntryDto[]>([]);
   protected readonly showResetConfirm = signal(false);
+  protected readonly showConflictDialog = signal(false);
+  protected readonly conflictData = signal<StateSchemaConflictResponse | null>(null);
 
   ngOnInit(): void {
     this.loadState();
   }
 
   private loadState(): void {
-    this.stateApi.getCampaignState(this.campaign.id).subscribe({
-      next: (e) => this.entries.set(e),
+    this.campaignsApi.get(this.campaign.id).subscribe({
+      next: (c) => {
+        const entries: StateEntryDto[] = Object.entries(c.state ?? {}).map(([key, entry]) => ({
+          key,
+          type: entry.type,
+          default: entry.default as boolean | number | string,
+          current: entry.value as boolean | number | string,
+          ...(entry.values ? { values: entry.values } : {}),
+        }));
+        this.entries.set(entries);
+      },
       error: () =>
         this.messageService.add({ severity: 'error', summary: 'Errore caricamento stato' }),
     });
@@ -96,69 +117,39 @@ export class CampaignStatePanelComponent implements OnInit {
     const isRename = old.key !== entry.key;
     const isTypeChange = !isRename && old.type !== entry.type;
 
-    const decl: GlobalVarDecl = {
+    const entryShape: StateEntryShape = {
       type: entry.type,
       default: entry.default,
       ...(entry.values ? { values: entry.values } : {}),
     };
 
-    if (isRename) {
-      // rename = delete old + add new
-      this.schemaApi
-        .deleteVar(this.campaign.id, old.key)
-        .pipe(switchMap(() => this.schemaApi.addVar(this.campaign.id, entry.key, decl)))
-        .subscribe({
-          next: () => {
-            this.loadState();
-            this.messageService.add({ severity: 'success', summary: 'Variabile rinominata' });
-          },
-          error: (err: { status?: number }) => {
-            const msg =
-              err?.status === 409 ? 'Variabile già esistente' : 'Errore durante la rinomina';
-            this.messageService.add({ severity: 'error', summary: msg });
-          },
-        });
-    } else if (isTypeChange) {
-      // update declaration, then clear stale override
-      this.schemaApi
-        .updateVar(this.campaign.id, old.key, decl)
-        .pipe(switchMap(() => this.stateApi.resetCampaignVar(this.campaign.id, old.key)))
-        .subscribe({
-          next: () => {
-            this.loadState();
-            this.messageService.add({ severity: 'success', summary: 'Variabile aggiornata' });
-          },
-          error: () =>
-            this.messageService.add({ severity: 'error', summary: "Errore durante l'aggiornamento" }),
-        });
-    } else {
-      // default/values-only edit
-      this.schemaApi.updateVar(this.campaign.id, old.key, decl).subscribe({
-        next: () => {
-          this.loadState();
-          this.messageService.add({ severity: 'success', summary: 'Variabile aggiornata' });
-        },
-        error: () =>
-          this.messageService.add({ severity: 'error', summary: "Errore durante l'aggiornamento" }),
-      });
-    }
+    const op = isRename
+      ? { action: 'update' as const, name: old.key, rename: entry.key, entry: entryShape, value: coerceForType(entry, entry.current) }
+      : isTypeChange
+        ? { action: 'update' as const, name: old.key, entry: entryShape }
+        : { action: 'update' as const, name: old.key, entry: entryShape, value: coerceForType(entry, entry.current) };
+
+    this.schemaApi.patchSchema(this.campaign.id, [op]).subscribe({
+      next: () => {
+        this.loadState();
+        this.messageService.add({ severity: 'success', summary: 'Variabile aggiornata' });
+      },
+      error: (err) => this.handleSchemaError(err),
+    });
   }
 
   protected onAddVar(entry: StateEntryDto): void {
-    const decl: GlobalVarDecl = {
+    const entryShape: StateEntryShape = {
       type: entry.type,
       default: entry.default,
       ...(entry.values ? { values: entry.values } : {}),
     };
-    this.schemaApi.addVar(this.campaign.id, entry.key, decl).subscribe({
+    this.schemaApi.patchSchema(this.campaign.id, [{ action: 'add', name: entry.key, entry: entryShape }]).subscribe({
       next: () => {
         this.loadState();
         this.messageService.add({ severity: 'success', summary: 'Variabile aggiunta' });
       },
-      error: (err: { status?: number }) => {
-        const msg = err?.status === 409 ? 'Variabile già esistente' : "Errore durante l'aggiunta";
-        this.messageService.add({ severity: 'error', summary: msg });
-      },
+      error: (err) => this.handleSchemaError(err),
     });
   }
 
@@ -169,16 +160,27 @@ export class CampaignStatePanelComponent implements OnInit {
       rejectLabel: 'Annulla',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
-        this.schemaApi.deleteVar(this.campaign.id, entry.key).subscribe({
+        this.schemaApi.patchSchema(this.campaign.id, [{ action: 'delete', name: entry.key }]).subscribe({
           next: () => {
             this.loadState();
             this.messageService.add({ severity: 'success', summary: 'Variabile eliminata' });
           },
-          error: () =>
-            this.messageService.add({ severity: 'error', summary: "Errore durante l'eliminazione" }),
+          error: (err) => this.handleSchemaError(err),
         });
       },
     });
+  }
+
+  private handleSchemaError(err: { status?: number; error?: unknown }): void {
+    if (err?.status === 409) {
+      const parsed = StateSchemaConflictResponseSchema.safeParse(err.error);
+      if (parsed.success) {
+        this.conflictData.set(parsed.data);
+        this.showConflictDialog.set(true);
+        return;
+      }
+    }
+    this.messageService.add({ severity: 'error', summary: 'Errore durante l\'operazione' });
   }
 
   protected onResetVar(entry: StateEntryDto): void {
@@ -214,20 +216,16 @@ export class CampaignStatePanelComponent implements OnInit {
 
   protected executeEntireCampaignReset(): void {
     this.showResetConfirm.set(false);
-    // Step 1: global reset first; abort on failure
     this.stateApi
       .resetCampaignAll(this.campaign.id)
       .pipe(
         switchMap(() =>
-          // Step 2: fan-out per-terminal local resets in parallel
           this.terminalsApi.listByCampaign(this.campaign.id).pipe(
             switchMap((terminals) => {
               if (terminals.length === 0) return of({ successes: 0, failures: [] as string[] });
               const resets = terminals.map((t) =>
                 this.stateApi.resetTerminalAll(t.id).pipe(
-                  catchError(() => {
-                    return of({ failed: t.id });
-                  }),
+                  catchError(() => of({ failed: t.id })),
                 ),
               );
               return forkJoin(resets).pipe(
@@ -255,13 +253,13 @@ export class CampaignStatePanelComponent implements OnInit {
         if (failures.length === 0) {
           this.messageService.add({
             severity: 'success',
-            summary: `Reset completato`,
+            summary: 'Reset completato',
             detail: `Stato globale + ${successes} terminal${successes !== 1 ? 'i' : 'e'} locale${successes !== 1 ? 'i' : ''} resettati.`,
           });
         } else {
           this.messageService.add({
             severity: 'warn',
-            summary: `Reset parziale`,
+            summary: 'Reset parziale',
             detail: `${successes} terminali resettati. Errori: ${failures.join(', ')}`,
           });
         }

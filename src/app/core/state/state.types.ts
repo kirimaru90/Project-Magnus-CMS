@@ -1,6 +1,8 @@
+export type StateVarType = 'boolean' | 'number' | 'string' | 'enum';
+
 export interface StateEntryDto {
   key: string;
-  type: 'boolean' | 'number' | 'enum' | 'string';
+  type: StateVarType;
   default: boolean | number | string;
   current: boolean | number | string;
   values?: string[];
@@ -19,10 +21,32 @@ export interface MutateStateBody {
   mutations: MutationAtom[];
 }
 
-export interface GlobalVarDecl {
-  type: 'boolean' | 'number' | 'string' | 'enum';
+export interface StateEntryShape {
+  type: StateVarType;
   default: boolean | number | string;
   values?: string[];
 }
 
-export type GlobalSchemaDto = Record<string, GlobalVarDecl>;
+export interface StateMapEntry extends StateEntryShape {
+  value: unknown;
+}
+
+export interface StateSchemaOp {
+  action: 'add' | 'update' | 'delete';
+  name: string;
+  rename?: string;
+  entry?: StateEntryShape;
+  value?: unknown;
+}
+
+export interface StateSchemaConflictItem {
+  variable: string;
+  referencedBy: { id: string; title: string }[];
+}
+
+export interface StateSchemaConflictResponse {
+  error: string;
+  conflicts: StateSchemaConflictItem[];
+}
+
+export type FlatState = Record<string, unknown>;

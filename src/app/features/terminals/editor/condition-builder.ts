@@ -23,7 +23,7 @@ import { makeComboGroup, makeLeafGroup } from './terminal-form';
               <option [value]="k"></option>
             }
           </datalist>
-          <input formControlName="key" list="cond-keys" placeholder="chiave (es. local.var)" class="bo-input sm" />
+          <input formControlName="var" list="cond-keys" placeholder="chiave (es. local.var)" class="bo-input sm" />
           <select formControlName="op" class="bo-select sm">
             <option value="eq">eq</option>
             <option value="neq">neq</option>
@@ -43,6 +43,26 @@ import { makeComboGroup, makeLeafGroup } from './terminal-form';
           @if (canRemove) {
             <button type="button" class="bo-btn ghost sm danger" (click)="removed.emit()">✕</button>
           }
+        </div>
+      } @else if (group.get('kind')?.value === 'not') {
+        <div class="combo-node">
+          <div class="combo-header">
+            <span class="combo-kind">NOT</span>
+            @if (canRemove) {
+              <button type="button" class="bo-btn ghost sm danger" (click)="removed.emit()">✕ Rimuovi NOT</button>
+            }
+          </div>
+          <div class="combo-children">
+            @if (children.controls[0]) {
+              <app-condition-builder
+                [group]="asGroup(children.controls[0])"
+                [canRemove]="false"
+                [availableKeys]="availableKeys"
+                (removed)="removeChild(0)"
+                (convert)="replaceChild(0, $event)"
+              />
+            }
+          </div>
         </div>
       } @else {
         <div class="combo-node">
@@ -114,8 +134,8 @@ export class ConditionBuilderComponent {
   }
 
   wrapInCombo(kind: 'and' | 'or'): void {
-    const raw = this.group.getRawValue() as { key: string; op: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in'; value: string };
-    const leafClone = makeLeafGroup(raw.key, raw.op, raw.value);
+    const raw = this.group.getRawValue() as { var: string; op: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in'; value: string };
+    const leafClone = makeLeafGroup(raw.var, raw.op, raw.value);
     const combo = makeComboGroup(kind);
     (combo.get('children') as FormArray).push(leafClone);
     this.convert.emit(combo);

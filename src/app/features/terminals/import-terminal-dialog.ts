@@ -10,9 +10,11 @@ import {
 import { MessageService } from 'primeng/api';
 import { Dialog } from 'primeng/dialog';
 import { FileUpload, FileSelectEvent } from 'primeng/fileupload';
+import { Textarea } from 'primeng/textarea';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
 import type { TerminalDto } from '../../core/terminal/terminal.types';
 import { TerminalContentSchema } from '../../domain/terminal-schema';
+import type { TerminalContent } from '../../domain/terminal-schema';
 
 interface ZodError {
   path: string;
@@ -22,7 +24,7 @@ interface ZodError {
 @Component({
   selector: 'app-import-terminal-dialog',
   standalone: true,
-  imports: [Dialog, FileUpload],
+  imports: [Dialog, FileUpload, Textarea],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p-dialog
@@ -30,7 +32,7 @@ interface ZodError {
       (visibleChange)="closed.emit()"
       header="Importa terminale"
       [modal]="true"
-      [style]="{ width: '480px' }"
+      [style]="{ width: '580px' }"
       [draggable]="false"
       [resizable]="false"
     >
@@ -43,6 +45,15 @@ interface ZodError {
         [customUpload]="true"
         (onSelect)="onFileSelect($event)"
       />
+
+      <textarea
+        pInputTextarea
+        class="bo-input w-full"
+        style="margin-top: 12px; height: 200px; font-family: monospace; font-size: 12px; resize: vertical;"
+        placeholder="Incolla o carica il JSON del terminale..."
+        [value]="jsonText()"
+        (input)="jsonText.set($any($event.target).value)"
+      ></textarea>
 
       @if (parseError()) {
         <div class="bo-field-error" style="margin-top: 12px;">{{ parseError() }}</div>
@@ -63,8 +74,19 @@ interface ZodError {
         <div class="bo-field-error" style="margin-top: 12px;">{{ apiError() }}</div>
       }
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+      @if (validConfirmation()) {
+        <div style="margin-top: 12px; color: green; font-size: 14px;">JSON valido.</div>
+      }
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
         <button type="button" class="bo-btn ghost" (click)="closed.emit()">Chiudi</button>
+        <button type="button" class="bo-btn secondary" (click)="onCheckJson()">Controlla JSON</button>
+        <button
+          type="button"
+          class="bo-btn primary"
+          (click)="onImport()"
+          [disabled]="!jsonText().trim() || importing()"
+        >Importa</button>
       </div>
     </p-dialog>
   `,
@@ -78,55 +100,92 @@ export class ImportTerminalDialogComponent {
   private readonly api = inject(TerminalsApiService);
   private readonly messageService = inject(MessageService);
 
+  protected readonly jsonText = signal<string>('');
+  protected readonly importing = signal<boolean>(false);
   protected readonly parseError = signal<string | null>(null);
   protected readonly zodErrors = signal<ZodError[]>([]);
   protected readonly apiError = signal<string | null>(null);
+  protected readonly validConfirmation = signal<boolean>(false);
 
   protected onFileSelect(event: FileSelectEvent): void {
     this.parseError.set(null);
     this.zodErrors.set([]);
     this.apiError.set(null);
+    this.validConfirmation.set(false);
 
     const file = event.currentFiles[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = () => {
-      let parsed: unknown;
+      const raw = reader.result as string;
       try {
-        parsed = JSON.parse(reader.result as string);
+        const parsed = JSON.parse(raw);
+        this.jsonText.set(JSON.stringify(parsed, null, 2));
       } catch {
-        this.parseError.set('Il file non è un JSON valido.');
-        return;
+        this.jsonText.set(raw);
       }
-
-      const result = TerminalContentSchema.safeParse(parsed);
-      if (!result.success) {
-        this.zodErrors.set(
-          result.error.issues.map((issue) => ({
-            path: issue.path.join('.') || '(root)',
-            message: issue.message,
-          })),
-        );
-        return;
-      }
-
-      this.api.import(this.campaignId, result.data).subscribe({
-        next: (dto) => {
-          this.messageService.add({ severity: 'success', summary: 'Terminale importato' });
-          this.imported.emit(dto);
-          this.closed.emit();
-        },
-        error: (err) => {
-          const body = err?.error;
-          const msg =
-            typeof body?.message === 'string'
-              ? body.message
-              : 'Errore durante l\'importazione del terminale.';
-          this.apiError.set(msg);
-        },
-      });
     };
     reader.readAsText(file);
+  }
+
+  private validate(): TerminalContent | null {
+    this.parseError.set(null);
+    this.zodErrors.set([]);
+    this.apiError.set(null);
+    this.validConfirmation.set(false);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.jsonText());
+    } catch {
+      this.parseError.set('Il file non è un JSON valido.');
+      return null;
+    }
+
+    const result = TerminalContentSchema.safeParse(parsed);
+    if (!result.success) {
+      this.zodErrors.set(
+        result.error.issues.map((issue) => ({
+          path: issue.path.join('.') || '(root)',
+          message: issue.message,
+        })),
+      );
+      return null;
+    }
+
+    return result.data;
+  }
+
+  protected onCheckJson(): void {
+    const data = this.validate();
+    if (data !== null) {
+      this.jsonText.set(JSON.stringify(data, null, 2));
+      this.validConfirmation.set(true);
+    }
+  }
+
+  protected onImport(): void {
+    const data = this.validate();
+    if (data === null) return;
+
+    this.importing.set(true);
+    this.api.import(this.campaignId, data).subscribe({
+      next: (dto) => {
+        this.importing.set(false);
+        this.messageService.add({ severity: 'success', summary: 'Terminale importato' });
+        this.imported.emit(dto);
+        this.closed.emit();
+      },
+      error: (err) => {
+        this.importing.set(false);
+        const body = err?.error;
+        const msg =
+          typeof body?.message === 'string'
+            ? body.message
+            : 'Errore durante l\'importazione del terminale.';
+        this.apiError.set(msg);
+      },
+    });
   }
 }

@@ -82,6 +82,10 @@ export const MutationSchema = z.union([
 const PrimitiveValue = z.union([z.string(), z.number(), z.boolean()]);
 
 const LeafPredicateSchema = z.union([
+  // canonical new shape
+  z.object({ var: z.string(), op: z.enum(['eq', 'neq', 'gt', 'lt', 'gte', 'lte']), value: PrimitiveValue }).strict(),
+  z.object({ var: z.string(), op: z.literal('in'), value: z.array(PrimitiveValue) }).strict(),
+  // legacy shape — read tolerance only; serializer always writes the new shape
   z.object({ key: z.string(), eq: PrimitiveValue }).strict(),
   z.object({ key: z.string(), neq: PrimitiveValue }).strict(),
   z.object({ key: z.string(), gt: PrimitiveValue }).strict(),
@@ -95,6 +99,7 @@ export type Condition =
   | z.infer<typeof LeafPredicateSchema>
   | { and: Condition[] }
   | { or: Condition[] }
+  | { not: Condition }
   | { default: true };
 
 export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
@@ -102,6 +107,7 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
     LeafPredicateSchema,
     z.object({ and: z.array(ConditionSchema) }).strict(),
     z.object({ or: z.array(ConditionSchema) }).strict(),
+    z.object({ not: ConditionSchema }).strict(),
     z.object({ default: z.literal(true) }).strict(),
   ]),
 );

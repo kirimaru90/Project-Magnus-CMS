@@ -11,6 +11,16 @@ export const StateEntrySchema = z.object({
 
 export const StateEntryArraySchema = z.array(StateEntrySchema);
 
+export const StateSchemaConflictResponseSchema = z.object({
+  error: z.string(),
+  conflicts: z.array(
+    z.object({
+      variable: z.string(),
+      referencedBy: z.array(z.object({ id: z.string(), title: z.string() })),
+    }),
+  ),
+});
+
 export function valueSchemaFor(entry: StateEntryDto): z.ZodType {
   switch (entry.type) {
     case 'boolean':

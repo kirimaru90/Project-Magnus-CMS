@@ -22,7 +22,7 @@ import type { UserDto } from '../../core/user/user.types';
   imports: [ButtonModule, MultiSelect, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bo-card" style="padding: 16px;">
+    <div class="bo-card section">
       <h2 style="margin: 0 0 16px;">Campagne assegnate</h2>
 
       @if (assignedCampaigns().length === 0) {

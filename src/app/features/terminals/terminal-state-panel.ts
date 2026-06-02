@@ -14,7 +14,7 @@ import { StateTableComponent } from '../state/state-table';
   imports: [ButtonModule, StateTableComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bo-card" style="margin-top: 16px; padding: 16px;">
+    <div class="bo-card section" style="margin-top: 16px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <h2 style="margin: 0;">Stato locale</h2>
         @if (entries().length > 0) {

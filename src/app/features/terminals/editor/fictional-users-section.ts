@@ -8,13 +8,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule } from '@angular
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bo-card section">
-      <h3 class="section-title">Utenti fittizi</h3>
-
-      <div class="security-banner">
-        <strong>Nota di sicurezza:</strong> Le credenziali sono visibili agli amministratori per progetto
-        e vengono memorizzate così come sono. L'API le rimuove prima di consegnare il terminale
-        all'app del player.
-      </div>
+      <h3 class="bo-card-section-title">Utenti fittizi</h3>
 
       @for (row of users.controls; track row; let i = $index) {
         <div [formGroup]="asGroup(row)" class="user-row">
@@ -30,9 +24,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule } from '@angular
     </div>
   `,
   styles: [`
-    .section { margin-bottom: 16px; padding: 16px; }
-    .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--bo-text-faint); }
-    .security-banner { background: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+    .section { margin-bottom: 16px; }
     .user-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
     .empty-hint { font-size: 13px; color: var(--bo-text-faint); margin: 0 0 8px; }
     .bo-input.sm { padding: 4px 8px; font-size: 13px; }

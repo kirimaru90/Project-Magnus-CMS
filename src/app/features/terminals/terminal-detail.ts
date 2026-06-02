@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, EMPTY, switchMap } from 'rxjs';
+import { catchError, EMPTY } from 'rxjs';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { Toast } from 'primeng/toast';
@@ -69,7 +69,7 @@ import { TerminalStatePanelComponent } from './terminal-state-panel';
           </table>
         </div>
 
-        <app-terminal-editor [terminalId]="terminalId" [content]="t" [campaignId]="currentCampaign.currentCampaign()?.id" (saved)="saveVersion.update(v => v + 1)" />
+        <app-terminal-editor [terminalId]="terminalId" [content]="t" (saved)="saveVersion.update(v => v + 1)" />
 
         <app-terminal-state-panel [terminalId]="terminalId" [refreshTrigger]="saveVersion()" />
       } @else {
@@ -102,15 +102,7 @@ export class TerminalDetailPage {
     ),
   );
 
-  protected readonly campaignName = toSignal(
-    this.terminalsApi.get(this.terminalId).pipe(
-      switchMap(() => {
-        const campaign = this.currentCampaign.currentCampaign();
-        return campaign ? [campaign.name] : [null];
-      }),
-      catchError(() => [null]),
-    ),
-  );
+  protected readonly campaignName = computed(() => this.currentCampaign.currentCampaign()?.name ?? null);
 
   protected readonly backLink = (() => {
     const campaign = this.currentCampaign.currentCampaign();

@@ -1,7 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { BehaviorSubject, switchMap } from 'rxjs';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
@@ -144,10 +142,7 @@ export class CampaignsPage {
   private readonly messageService = inject(MessageService);
   private readonly currentCampaign = inject(CurrentCampaignService);
 
-  private readonly reload$ = new BehaviorSubject<void>(undefined);
-  protected readonly campaigns = toSignal(
-    this.reload$.pipe(switchMap(() => this.api.list())),
-  );
+  protected readonly campaigns = this.currentCampaign.campaigns;
 
   protected readonly showCreate = signal(false);
   protected readonly showEdit = signal(false);
@@ -165,22 +160,19 @@ export class CampaignsPage {
 
   protected onCreated(): void {
     this.showCreate.set(false);
-    this.reload$.next();
+    this.currentCampaign.refresh();
     this.messageService.add({ severity: 'success', summary: 'Campagna creata' });
   }
 
-  protected onSaved(updated: CampaignDto): void {
+  protected onSaved(_updated: CampaignDto): void {
     this.closeEdit();
-    this.reload$.next();
-    if (this.currentCampaign.currentCampaign()?.id === updated.id) {
-      this.currentCampaign.setCurrent(updated);
-    }
+    this.currentCampaign.refresh();
     this.messageService.add({ severity: 'success', summary: 'Campagna aggiornata' });
   }
 
   protected toggleActive(campaign: CampaignDto): void {
     this.api.activate(campaign.id).subscribe({
-      next: () => this.reload$.next(),
+      next: () => this.currentCampaign.refresh(),
       error: () =>
         this.messageService.add({ severity: 'error', summary: 'Errore durante l\'aggiornamento' }),
     });
@@ -203,7 +195,7 @@ export class CampaignsPage {
         if (this.currentCampaign.currentCampaign()?.id === campaign.id) {
           this.currentCampaign.clear();
         }
-        this.reload$.next();
+        this.currentCampaign.refresh();
         this.messageService.add({ severity: 'success', summary: 'Campagna eliminata' });
       },
       error: () =>

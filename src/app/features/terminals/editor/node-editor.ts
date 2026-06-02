@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, Input, signal } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { MultiSelect } from 'primeng/multiselect';
 import { ConditionBuilderComponent } from './condition-builder';
 import { MutationEditorComponent } from './mutation-editor';
 import { NodeContentEditorComponent } from './node-content-editor';
@@ -8,7 +9,7 @@ import { makeVariantGroup } from './terminal-form';
 @Component({
   selector: 'app-node-editor',
   standalone: true,
-  imports: [ReactiveFormsModule, MutationEditorComponent, ConditionBuilderComponent, NodeContentEditorComponent],
+  imports: [ReactiveFormsModule, MultiSelect, MutationEditorComponent, ConditionBuilderComponent, NodeContentEditorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [formGroup]="nodeGroup" class="node-editor">
@@ -17,12 +18,12 @@ import { makeVariantGroup } from './terminal-form';
       <div class="sub-section">
         <h5 class="sub-label">Login nodo</h5>
         @if (availableUsernames.length > 0) {
-          <select multiple formControlName="loginUsers" class="bo-select login-select">
-            @for (u of availableUsernames; track u) {
-              <option [value]="u">{{ u }}</option>
-            }
-          </select>
-          <p class="field-hint">Tieni premuto Ctrl/Cmd per selezionare più utenti.</p>
+          <p-multiselect
+            [options]="availableUsernames"
+            formControlName="loginUsers"
+            placeholder="Seleziona utenti"
+            styleClass="w-full"
+          />
         } @else {
           <p class="empty-hint">Nessun utente fittizio dichiarato. Aggiungili nella sezione "Utenti fittizi" per abilitare il gate di login.</p>
         }
@@ -144,7 +145,6 @@ import { makeVariantGroup } from './terminal-form';
     .bo-btn.sm { padding: 4px 10px; font-size: 13px; }
     .empty-hint { font-size: 12px; color: var(--bo-text-faint, #999); margin: 0 0 4px; }
     .field-hint { font-size: 12px; color: var(--bo-text-faint, #999); margin: 4px 0 0; }
-    .login-select { min-height: 80px; }
   `],
 })
 export class NodeEditorComponent {

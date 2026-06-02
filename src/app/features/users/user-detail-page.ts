@@ -42,7 +42,7 @@ import { UserCampaignsPanelComponent } from './user-campaigns-panel';
         @if (user()!.role === 'player') {
           <app-user-campaigns-panel [user]="user()!" />
         } @else {
-          <div class="bo-card" style="padding: 16px;">
+          <div class="bo-card section">
             <p style="color: var(--bo-text-faint);">
               Gli amministratori hanno accesso implicito a tutte le campagne.
             </p>

@@ -1,3 +1,8 @@
+---
+version: 1.2
+date: 2026-06-02
+---
+
 # How to Write a Terminal JSON File
 
 > **Purpose.** Step-by-step instructions for creating a JSON file that describes one
@@ -188,7 +193,7 @@ it uses the one marked `{ "default": true }`.
 "porta_bunker": {
   "variants": [
     {
-      "when": { "key": "local.bunker_code_seen", "eq": true },
+      "when": { "var": "local.bunker_code_seen", "op": "eq", "value": true },
       "text": "Conosci il codice: **58874645**.",
       "choices": [{ "label": "[ Entra ]", "target": "bunker_interno" }]
     },
@@ -214,8 +219,8 @@ A choice is a button that navigates to another node, optionally after writing st
   "target": "bunker_open",
   "when": {
     "and": [
-      { "key": "local.bunker_code_seen", "eq": true },
-      { "key": "global.omega_activated", "eq": false }
+      { "var": "local.bunker_code_seen", "op": "eq", "value": true },
+      { "var": "global.omega_activated", "op": "eq", "value": false }
     ]
   },
   "set": [
@@ -244,7 +249,7 @@ An input component captures a typed value, stores it into a variable, then branc
       "placeholder": "CODICE...",
       "set": "local.entered_code",
       "branches": [
-        { "when": { "key": "local.entered_code", "eq": "58874645" }, "target": "bunker_aperto" },
+        { "when": { "var": "local.entered_code", "op": "eq", "value": "58874645" }, "target": "bunker_aperto" },
         { "default": true, "target": "codice_errato" }
       ]
     }
@@ -314,20 +319,48 @@ Conditions are **structured JSON**, never expression strings.
 **Leaf predicate:**
 
 ```json
-{ "key": "local.access_count", "gte": 3 }
+{ "var": "local.access_count", "op": "gte", "value": 3 }
 ```
 
 Operators: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `in`.
-(`in` takes an array: `{ "key": "local.sullivan_mood", "in": ["paranoid","panicked"] }`.)
+(`in` takes an array: `{ "var": "local.sullivan_mood", "op": "in", "value": ["paranoid","panicked"] }`.)
 
 **Combinators (nestable):**
 
 ```json
 { "and": [ {predicate}, {predicate} ] }
 { "or":  [ {predicate}, {predicate} ] }
+{ "not": {predicate} }
 ```
 
+`not` is true iff the child condition is false.
+
 **Fallback marker** (for variants / branches only): `{ "default": true }`.
+
+### 6.1 Conditions vs. mutations — `var` vs `key`
+
+Two similar-looking shapes are **not** interchangeable. The common mistake is using
+`key` (or putting the operator name where the value goes) inside a `when`. Use this table:
+
+| Purpose | Where it appears                          | Variable field | Shape                                                          |
+| ------- | ----------------------------------------- | -------------- | ------------------------------------------------------------- |
+| **READ** a variable (condition) | variant `when`, choice `when`, input branch `when` | `var`  | `{ "var": "local.x", "op": "gte", "value": 3 }`               |
+| **WRITE** a variable (mutation) | `on_enter`, choice `set`                  | `key`          | `{ "key": "local.x", "op": "set", "value": 3 }`               |
+
+Both use `op` and `value`, but **conditions read via `var`, mutations write via `key`.**
+The condition `op` is a comparison (`eq`/`neq`/`gt`/`gte`/`lt`/`lte`/`in`); the mutation
+`op` is an action (`set`/`increment`/`toggle`). The operator is always the **value** of
+the `op` field — never a property name. Wrong:
+
+```json
+{ "key": "local.x", "gte": 3 }          // ❌ key in a condition; gte as a property
+```
+
+Right:
+
+```json
+{ "var": "local.x", "op": "gte", "value": 3 }   // ✅ condition
+```
 
 ---
 
@@ -369,7 +402,7 @@ Operators: `eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `in`.
         {
           "label": "[ Azione condizionata ]",
           "target": "start",
-          "when": { "key": "local.example_flag", "eq": true }
+          "when": { "var": "local.example_flag", "op": "eq", "value": true }
         }
       ]
     }

@@ -51,16 +51,16 @@ When a state variable's type is `enum`, the editor SHALL show a **values** edito
 - **WHEN** a variable's type is `number`
 - **THEN** the serialized variable has no `values` key
 
-### Requirement: Fictional users editor with cleartext fields and security banner
-The editor SHALL provide a fictional-users section rendering `login.users` as a `FormArray` of `{ username, password }` rows. Both **username** and **password** SHALL be plain-text inputs with **no masking**. Above the section the editor SHALL display a banner stating that the credentials are visible to admins by design, stored as-is, and never sent to the Terminal player app because the API strips them before delivery.
+### Requirement: Fictional users editor with cleartext fields
+The editor SHALL provide a fictional-users section rendering `login.users` as a `FormArray` of `{ username, password }` rows. Both **username** and **password** SHALL be plain-text inputs with **no masking**. The editor SHALL NOT display a security banner above the section.
 
 #### Scenario: Password shown in cleartext
 - **WHEN** the fictional-users section renders an existing user
 - **THEN** the password is displayed as readable text (input type is not `password`)
 
-#### Scenario: Banner present
+#### Scenario: No security banner
 - **WHEN** the fictional-users section renders
-- **THEN** a visible banner warns that the credentials are admin-visible by design and are stripped by the API before delivery to the Terminal player app
+- **THEN** no security/"Nota di sicurezza" banner is shown above the section
 
 #### Scenario: Add and serialize a user
 - **WHEN** the admin adds a user `{ username: ada, password: lovelace }` and saves

@@ -3,23 +3,34 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CampaignGlobalSchemaApiService } from '../../core/state/campaign-global-schema-api.service';
-import type { GlobalSchemaDto, GlobalVarDecl } from '../../core/state/state.types';
+import { CampaignsApiService } from '../../core/campaign/campaigns-api.service';
+import { CurrentCampaignService } from '../../core/campaign/current-campaign.service';
+import { StateSchemaConflictResponseSchema, coerceForType } from '../../core/state/state.schemas';
+import type { StateEntryShape, StateSchemaConflictResponse, StateVarType } from '../../core/state/state.types';
+import { SchemaConflictDialogComponent } from '../state/schema-conflict-dialog';
 
 interface VarRow {
   name: string;
-  type: GlobalVarDecl['type'];
-  default: GlobalVarDecl['default'];
+  type: StateVarType;
+  default: boolean | number | string;
   values?: string[];
+  current: boolean | number | string;
   editing: boolean;
 }
 
 @Component({
   selector: 'app-campaign-global-schema-panel',
   standalone: true,
-  imports: [ReactiveFormsModule, ButtonModule],
+  imports: [ReactiveFormsModule, ButtonModule, SchemaConflictDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="bo-card" style="margin-top: 16px;">
+    <app-schema-conflict-dialog
+      [visible]="showConflictDialog()"
+      [conflict]="conflictData()"
+      (dismissed)="showConflictDialog.set(false)"
+    />
+
+    <div class="bo-card section" style="margin-top: 16px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <h2 style="margin: 0;">Schema variabili globali</h2>
       </div>
@@ -32,7 +43,7 @@ interface VarRow {
         <div class="var-row">
           @if (row.editing) {
             <!-- Inline edit form -->
-            <span class="var-name">{{ row.name }}</span>
+            <input [formGroup]="editGroup" formControlName="name" placeholder="nome variabile" class="bo-input sm" />
             <select [value]="editGroup.get('type')!.value" (change)="onEditTypeChange($event)" class="bo-select sm">
               <option value="boolean">boolean</option>
               <option value="number">number</option>
@@ -120,42 +131,46 @@ export class CampaignGlobalSchemaPanelComponent implements OnInit {
   @Input({ required: true }) campaignId!: string;
 
   private readonly schemaApi = inject(CampaignGlobalSchemaApiService);
+  private readonly campaignsApi = inject(CampaignsApiService);
+  private readonly currentCampaign = inject(CurrentCampaignService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
 
   protected readonly rows = signal<VarRow[]>([]);
   protected readonly showAddForm = signal(false);
+  protected readonly showConflictDialog = signal(false);
+  protected readonly conflictData = signal<StateSchemaConflictResponse | null>(null);
 
   protected addGroup = this.makeAddGroup();
   protected editGroup = this.makeEditGroup();
 
-  private editOriginal: VarRow | null = null;
+  private editOriginalName = '';
 
   ngOnInit(): void {
     this.loadSchema();
   }
 
   private loadSchema(): void {
-    this.schemaApi.getSchema(this.campaignId).subscribe({
-      next: (schema) => this.rows.set(this.schemaToRows(schema)),
+    this.campaignsApi.get(this.campaignId).subscribe({
+      next: (campaign) => {
+        const rows: VarRow[] = Object.entries(campaign.state ?? {}).map(([name, entry]) => ({
+          name,
+          type: entry.type,
+          default: entry.default as boolean | number | string,
+          values: entry.values,
+          current: entry.value as boolean | number | string,
+          editing: false,
+        }));
+        this.rows.set(rows);
+      },
       error: () => this.messageService.add({ severity: 'error', summary: 'Errore caricamento schema' }),
     });
-  }
-
-  private schemaToRows(schema: GlobalSchemaDto): VarRow[] {
-    return Object.entries(schema).map(([name, decl]) => ({
-      name,
-      type: decl.type,
-      default: decl.default,
-      values: decl.values,
-      editing: false,
-    }));
   }
 
   private makeAddGroup(): FormGroup {
     return new FormGroup({
       name: new FormControl('', Validators.required),
-      type: new FormControl<GlobalVarDecl['type']>('string'),
+      type: new FormControl<StateVarType>('string'),
       default: new FormControl(''),
       values: new FormControl(''),
     });
@@ -163,7 +178,8 @@ export class CampaignGlobalSchemaPanelComponent implements OnInit {
 
   private makeEditGroup(): FormGroup {
     return new FormGroup({
-      type: new FormControl<GlobalVarDecl['type']>('string'),
+      name: new FormControl('', Validators.required),
+      type: new FormControl<StateVarType>('string'),
       default: new FormControl(''),
       values: new FormControl(''),
     });
@@ -182,27 +198,25 @@ export class CampaignGlobalSchemaPanelComponent implements OnInit {
   protected submitAdd(): void {
     this.addGroup.markAllAsTouched();
     if (this.addGroup.invalid) return;
-    const raw = this.addGroup.getRawValue() as { name: string; type: GlobalVarDecl['type']; default: string; values: string };
-    const decl = this.buildDecl(raw.type, raw.default, raw.values);
-    this.schemaApi.addVar(this.campaignId, raw.name.trim(), decl).subscribe({
+    const raw = this.addGroup.getRawValue() as { name: string; type: StateVarType; default: string; values: string };
+    const entry = this.buildEntry(raw.type, raw.default, raw.values);
+    this.schemaApi.patchSchema(this.campaignId, [{ action: 'add', name: raw.name.trim(), entry }]).subscribe({
       next: () => {
         this.showAddForm.set(false);
         this.loadSchema();
+        this.refreshCacheIfCurrent();
         this.messageService.add({ severity: 'success', summary: 'Variabile aggiunta' });
       },
-      error: (err: { status?: number }) => {
-        const msg = err?.status === 409 ? 'Variabile già esistente' : 'Errore durante l\'aggiunta';
-        this.messageService.add({ severity: 'error', summary: msg });
-      },
+      error: (err) => this.handleSchemaError(err),
     });
   }
 
   protected startEdit(i: number): void {
-    const current = this.rows();
-    const row = current[i];
-    this.editOriginal = { ...row };
+    const row = this.rows()[i];
+    this.editOriginalName = row.name;
     this.editGroup = new FormGroup({
-      type: new FormControl<GlobalVarDecl['type']>(row.type),
+      name: new FormControl(row.name, Validators.required),
+      type: new FormControl<StateVarType>(row.type),
       default: new FormControl(String(row.default)),
       values: new FormControl(row.values?.join(',') ?? ''),
     });
@@ -210,28 +224,45 @@ export class CampaignGlobalSchemaPanelComponent implements OnInit {
   }
 
   protected onEditTypeChange(event: Event): void {
-    const type = (event.target as HTMLSelectElement).value as GlobalVarDecl['type'];
+    const type = (event.target as HTMLSelectElement).value as StateVarType;
     this.editGroup.get('type')?.setValue(type);
     this.editGroup.get('default')?.setValue('');
     this.editGroup.get('values')?.setValue('');
   }
 
   protected saveEdit(i: number): void {
+    this.editGroup.markAllAsTouched();
+    if (this.editGroup.invalid) return;
+
     const row = this.rows()[i];
-    const raw = this.editGroup.getRawValue() as { type: GlobalVarDecl['type']; default: string; values: string };
-    const decl = this.buildDecl(raw.type, raw.default, raw.values);
-    this.schemaApi.updateVar(this.campaignId, row.name, decl).subscribe({
+    const raw = this.editGroup.getRawValue() as { name: string; type: StateVarType; default: string; values: string };
+    const newName = raw.name.trim();
+    const entry = this.buildEntry(raw.type, raw.default, raw.values);
+
+    const isRename = newName !== this.editOriginalName;
+    const isTypeChange = !isRename && raw.type !== row.type;
+
+    const coercedCurrent = coerceForType({ key: row.name, type: entry.type, default: entry.default, current: row.current }, row.current);
+
+    const op = isRename
+      ? { action: 'update' as const, name: this.editOriginalName, rename: newName, entry, value: coercedCurrent }
+      : isTypeChange
+        ? { action: 'update' as const, name: this.editOriginalName, entry }
+        : { action: 'update' as const, name: this.editOriginalName, entry, value: coercedCurrent };
+
+    this.schemaApi.patchSchema(this.campaignId, [op]).subscribe({
       next: () => {
         this.loadSchema();
+        this.refreshCacheIfCurrent();
         this.messageService.add({ severity: 'success', summary: 'Variabile aggiornata' });
       },
-      error: () => this.messageService.add({ severity: 'error', summary: 'Errore durante l\'aggiornamento' }),
+      error: (err) => this.handleSchemaError(err),
     });
   }
 
   protected cancelEdit(i: number): void {
     this.rows.update((r) => r.map((item, idx) => ({ ...item, editing: idx === i ? false : item.editing })));
-    this.editOriginal = null;
+    this.editOriginalName = '';
   }
 
   protected deleteVar(name: string): void {
@@ -241,22 +272,37 @@ export class CampaignGlobalSchemaPanelComponent implements OnInit {
       rejectLabel: 'Annulla',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
-        this.schemaApi.deleteVar(this.campaignId, name).subscribe({
+        this.schemaApi.patchSchema(this.campaignId, [{ action: 'delete', name }]).subscribe({
           next: () => {
             this.loadSchema();
+            this.refreshCacheIfCurrent();
             this.messageService.add({ severity: 'success', summary: 'Variabile eliminata' });
           },
-          error: () => this.messageService.add({ severity: 'error', summary: 'Errore durante l\'eliminazione' }),
+          error: (err) => this.handleSchemaError(err),
         });
       },
     });
   }
 
-  private buildDecl(
-    type: GlobalVarDecl['type'],
-    defaultStr: string,
-    valuesStr: string,
-  ): GlobalVarDecl {
+  private refreshCacheIfCurrent(): void {
+    if (this.currentCampaign.currentCampaign()?.id === this.campaignId) {
+      this.currentCampaign.refresh();
+    }
+  }
+
+  private handleSchemaError(err: { status?: number; error?: unknown }): void {
+    if (err?.status === 409) {
+      const parsed = StateSchemaConflictResponseSchema.safeParse(err.error);
+      if (parsed.success) {
+        this.conflictData.set(parsed.data);
+        this.showConflictDialog.set(true);
+        return;
+      }
+    }
+    this.messageService.add({ severity: 'error', summary: 'Errore durante l\'operazione' });
+  }
+
+  private buildEntry(type: StateVarType, defaultStr: string, valuesStr: string): StateEntryShape {
     if (type === 'boolean') {
       return { type, default: defaultStr === 'true' };
     }

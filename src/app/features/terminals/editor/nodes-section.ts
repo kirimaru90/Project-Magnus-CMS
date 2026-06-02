@@ -10,7 +10,7 @@ import { NodeEditorComponent } from './node-editor';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bo-card section">
-      <h3 class="section-title">Nodi</h3>
+      <h3 class="bo-card-section-title">Nodi</h3>
 
       @if (nodes.errors?.['duplicateIds']) {
         <div class="field-error banner">Gli ID dei nodi devono essere unici</div>
@@ -43,8 +43,7 @@ import { NodeEditorComponent } from './node-editor';
     </div>
   `,
   styles: [`
-    .section { margin-bottom: 16px; padding: 16px; }
-    .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--bo-text-faint); }
+    .section { margin-bottom: 16px; }
     .node-card { border: 1px solid var(--bo-border, #ddd); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
     .node-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 12px; background: var(--bo-accent); color: var(--bo-text-inverse); border-bottom: 1px solid var(--bo-accent); }
     .id-field { display: flex; flex-direction: column; gap: 4px; }

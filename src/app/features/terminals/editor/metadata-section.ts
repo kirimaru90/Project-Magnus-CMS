@@ -8,7 +8,7 @@ import { FormGroup, ReactiveFormsModule } from '@angular/forms';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [formGroup]="metaGroup" class="bo-card section">
-      <h3 class="section-title">Metadati</h3>
+      <h3 class="bo-card-section-title">Metadati</h3>
 
       <div class="field">
         <label class="field-label" for="meta-title">Titolo *</label>
@@ -34,8 +34,7 @@ import { FormGroup, ReactiveFormsModule } from '@angular/forms';
     </div>
   `,
   styles: [`
-    .section { margin-bottom: 16px; padding: 16px; }
-    .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--bo-text-faint); }
+    .section { margin-bottom: 16px; }
     .field { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
     .field-label { font-size: 13px; font-weight: 500; }
     .field-error { font-size: 12px; color: var(--bo-danger, #c0392b); }

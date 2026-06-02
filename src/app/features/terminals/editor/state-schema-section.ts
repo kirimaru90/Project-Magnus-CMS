@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, Input, signal } from '@angular/core
 import { FormArray, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { AutoCompleteModule } from 'primeng/autocomplete';
 import { emptyStateVarGroup, makeStateVarGroup } from './terminal-form';
-import type { GlobalSchemaDto } from '../../../core/state/state.types';
+import type { StateEntryShape } from '../../../core/state/state.types';
 
 @Component({
   selector: 'app-state-schema-section',
@@ -11,7 +11,7 @@ import type { GlobalSchemaDto } from '../../../core/state/state.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bo-card section">
-      <h3 class="section-title">Schema di stato</h3>
+      <h3 class="bo-card-section-title">Schema di stato</h3>
 
       <!-- Local variables -->
       <div class="scope-block">
@@ -217,8 +217,7 @@ import type { GlobalSchemaDto } from '../../../core/state/state.types';
     </div>
   `,
   styles: [`
-    .section { margin-bottom: 16px; padding: 16px; }
-    .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--bo-text-faint); }
+    .section { margin-bottom: 16px; }
     .scope-block { margin-bottom: 16px; }
     .scope-label { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
     .var-badge { font-size: 11px; background: var(--bo-panel-2); color: var(--bo-text-muted); border: 1px solid var(--bo-border); border-radius: 4px; padding: 2px 6px; }
@@ -234,7 +233,7 @@ export class StateSchemaSectionComponent {
   @Input({ required: true }) localVars!: FormArray<FormGroup>;
   @Input({ required: true }) globalVars!: FormArray<FormGroup>;
   /** When provided, global vars section switches to picker mode — vars are owned by the campaign. */
-  @Input() campaignGlobalSchema?: GlobalSchemaDto | null;
+  @Input() campaignGlobalSchema?: Record<string, StateEntryShape> | null;
 
   protected readonly pickerVisible = signal(false);
   protected pickerQuery = '';

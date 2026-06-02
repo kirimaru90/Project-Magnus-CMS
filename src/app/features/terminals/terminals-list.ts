@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -13,7 +14,7 @@ import { ButtonModule } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { TableModule } from 'primeng/table';
 import { Toast } from 'primeng/toast';
-import { CampaignsApiService } from '../../core/campaign/campaigns-api.service';
+import { CurrentCampaignService } from '../../core/campaign/current-campaign.service';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
 import type { TerminalDto } from '../../core/terminal/terminal.types';
 import { exportTerminal } from './export-terminal';
@@ -163,13 +164,18 @@ import { ImportTerminalDialogComponent } from './import-terminal-dialog';
 })
 export class TerminalsListPage {
   private readonly terminalsApi = inject(TerminalsApiService);
-  private readonly campaignsApi = inject(CampaignsApiService);
+  private readonly currentCampaign = inject(CurrentCampaignService);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
   private readonly route = inject(ActivatedRoute);
 
   protected readonly campaignId = this.route.snapshot.params['campaignId'] as string;
-  protected readonly campaignNotFound = signal(false);
+
+  protected readonly campaignNotFound = computed(() => {
+    const list = this.currentCampaign.campaigns();
+    return list.length > 0 && !list.some((c) => c.id === this.campaignId);
+  });
+
   protected readonly showCreate = signal(false);
   protected readonly showImport = signal(false);
 
@@ -177,16 +183,6 @@ export class TerminalsListPage {
   protected readonly terminals = toSignal(
     this.reload$.pipe(switchMap(() => this.terminalsApi.listByCampaign(this.campaignId))),
   );
-
-  constructor() {
-    this.campaignsApi.get(this.campaignId).subscribe({
-      error: (err) => {
-        if (err?.status === 404) {
-          this.campaignNotFound.set(true);
-        }
-      },
-    });
-  }
 
   protected onCreated(): void {
     this.showCreate.set(false);

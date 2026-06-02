@@ -430,8 +430,8 @@ Reset always restores `default_value` from the row. Since `default_value` is mir
           "target": "bunker_open",
           "when": {
             "and": [
-              { "key": "local.bunker_code_seen", "eq": true },
-              { "key": "global.omega_activated", "eq": false }
+              { "var": "local.bunker_code_seen", "op": "eq", "value": true },
+              { "var": "global.omega_activated", "op": "eq", "value": false }
             ]
           },
           "set": [
@@ -444,7 +444,7 @@ Reset always restores `default_value` from the row. Since `default_value` is mir
     "porta_bunker": {
       "variants": [
         {
-          "when": { "key": "local.bunker_code_seen", "eq": true },
+          "when": { "var": "local.bunker_code_seen", "op": "eq", "value": true },
           "text": "Conosci il codice: **58874645**.",
           "choices": [{ "label": "[ Entra ]", "target": "bunker_interno" }]
         },
@@ -464,7 +464,7 @@ Reset always restores `default_value` from the row. Since `default_value` is mir
           "placeholder": "CODICE...",
           "set": "local.entered_code",
           "branches": [
-            { "when": { "key": "local.entered_code", "eq": "58874645" }, "target": "bunker_aperto" },
+            { "when": { "var": "local.entered_code", "op": "eq", "value": "58874645" }, "target": "bunker_aperto" },
             { "default": true, "target": "codice_errato" }
           ]
         }
@@ -478,10 +478,13 @@ Reset always restores `default_value` from the row. Since `default_value` is mir
 
 Conditions are structured JSON, not expression strings. Operators:
 
-- Leaf predicate: `{ "key": "scope.var", "eq": value }` (also `neq`, `gt`, `lt`, `gte`, `lte`, `in`)
+- Leaf predicate: `{ "var": "scope.var", "op": "eq", "value": value }` (also `neq`, `gt`, `lt`, `gte`, `lte`); for set membership: `{ "var": "scope.var", "op": "in", "value": [v1, v2, ...] }`
 - Combinator: `{ "and": [predicate, ...] }` and `{ "or": [predicate, ...] }`
+- Negation: `{ "not": predicate }` — true iff the child condition is false
 - Nesting is permitted.
 - `{ "default": true }` marks the fallback variant when no other variant matches.
+
+Note: the legacy `{ "key": "scope.var", "eq": value }` shape (operator as the property name) is accepted on read for backward compatibility; the CMS always writes the canonical `{ var, op, value }` shape on save.
 
 ---
 
