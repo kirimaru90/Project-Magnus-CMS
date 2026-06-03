@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { StateApiService } from '../../core/state/state-api.service';
 import type { MutationAtom, StateEntryDto } from '../../core/state/state.types';
 import { TerminalsApiService } from '../../core/terminal/terminals-api.service';
-import type { TerminalContent } from '../../domain/terminal-schema';
+import type { StateDeclaration, TerminalContent } from '../../domain/terminal-schema';
 import { StateTableComponent } from '../state/state-table';
 
 @Component({
@@ -45,28 +45,61 @@ export class TerminalStatePanelComponent implements OnInit, OnChanges {
   private readonly messageService = inject(MessageService);
 
   protected readonly entries = signal<StateEntryDto[]>([]);
+  private readonly localSchema = signal<StateDeclaration['local']>({});
 
   ngOnInit(): void {
-    this.loadState();
+    this.loadFull();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
-      this.loadState();
+      this.loadFull();
     }
   }
 
-  private loadState(): void {
-    this.stateApi.getTerminalState(this.terminalId).subscribe({
-      next: (e) => this.entries.set(e),
+  private loadFull(): void {
+    this.terminalsApi.getEnvelope(this.terminalId).subscribe({
+      next: (envelope) => {
+        const schema = envelope.content.state.local;
+        this.localSchema.set(schema);
+        this.entries.set(this.buildEntries(schema, envelope.state));
+      },
       error: () =>
         this.messageService.add({ severity: 'error', summary: 'Errore caricamento stato' }),
     });
   }
 
+  private loadValues(): void {
+    this.stateApi.getTerminalFlatState(this.terminalId).subscribe({
+      next: (flat) => {
+        this.entries.set(this.buildEntries(this.localSchema(), flat));
+      },
+      error: () =>
+        this.messageService.add({ severity: 'error', summary: 'Errore caricamento stato' }),
+    });
+  }
+
+  private buildEntries(
+    schema: StateDeclaration['local'],
+    flat: Record<string, unknown>,
+  ): StateEntryDto[] {
+    return Object.entries(schema).map(([key, variable]) => {
+      const entry: StateEntryDto = {
+        key,
+        type: variable.type,
+        default: variable.default,
+        current: (flat[key] ?? variable.default) as boolean | number | string,
+      };
+      if (variable.type === 'enum') {
+        entry.values = variable.values;
+      }
+      return entry;
+    });
+  }
+
   protected onMutate(atom: MutationAtom): void {
     this.stateApi.mutateTerminal(this.terminalId, [atom]).subscribe({
-      next: () => this.loadState(),
+      next: () => this.loadValues(),
       error: () =>
         this.messageService.add({ severity: 'error', summary: 'Errore durante la modifica' }),
     });
@@ -94,10 +127,9 @@ export class TerminalStatePanelComponent implements OnInit, OnChanges {
             { key: `local.${event.entry.key}`, op: 'set', value: event.entry.current },
           ]),
         ),
-        switchMap(() => this.stateApi.getTerminalState(this.terminalId)),
       )
       .subscribe({
-        next: (entries) => this.entries.set(entries),
+        next: () => this.loadFull(),
         error: () =>
           this.messageService.add({ severity: 'error', summary: 'Errore durante la modifica dello schema' }),
       });
@@ -118,7 +150,7 @@ export class TerminalStatePanelComponent implements OnInit, OnChanges {
       rejectLabel: 'Annulla',
       accept: () => {
         this.stateApi.resetTerminalVar(this.terminalId, entry.key).subscribe({
-          next: () => this.loadState(),
+          next: () => this.loadValues(),
           error: () =>
             this.messageService.add({ severity: 'error', summary: 'Errore durante il reset' }),
         });
@@ -134,7 +166,7 @@ export class TerminalStatePanelComponent implements OnInit, OnChanges {
       acceptButtonStyleClass: 'p-button-warning',
       accept: () => {
         this.stateApi.resetTerminalAll(this.terminalId).subscribe({
-          next: () => this.loadState(),
+          next: () => this.loadValues(),
           error: () =>
             this.messageService.add({ severity: 'error', summary: 'Errore durante il reset' }),
         });

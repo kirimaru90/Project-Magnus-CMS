@@ -1,25 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { StateEntryArraySchema } from './state.schemas';
-import type { MutationAtom, StateEntryDto } from './state.types';
+import type { MutationAtom } from './state.types';
 
 @Injectable({ providedIn: 'root' })
 export class StateApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
-  getTerminalState(id: string): Observable<StateEntryDto[]> {
-    return this.http
-      .get<unknown>(`${this.base}/terminals/${id}/state`)
-      .pipe(map((r) => StateEntryArraySchema.parse(r)));
-  }
-
-  getCampaignState(id: string): Observable<StateEntryDto[]> {
-    return this.http
-      .get<unknown>(`${this.base}/campaigns/${id}/state`)
-      .pipe(map((r) => StateEntryArraySchema.parse(r)));
+  getTerminalFlatState(id: string): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.base}/terminals/${id}/state`);
   }
 
   mutateTerminal(id: string, mutations: MutationAtom[]): Observable<void> {

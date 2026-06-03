@@ -38,6 +38,10 @@ export class TerminalsApiService {
       .pipe(map((r) => r.content));
   }
 
+  getEnvelope(id: string): Observable<TerminalDetailEnvelope> {
+    return this.http.get<TerminalDetailEnvelope>(`${this.base}/terminals/${id}`);
+  }
+
   /**
    * Resolve a terminal by its user-authored `hiddenId` within a campaign. This is the
    * only API call keyed on `hiddenId`; every other terminal call uses the server-owned `id`.
